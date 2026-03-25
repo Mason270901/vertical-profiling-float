@@ -86,44 +86,57 @@ undefined reference to `ESP'
 undefined reference to `_ZN8EspClass20getFlashFrequencyMHzEv'
 ```
 
-**Root cause:** `ropg/heltec_esp32_lora_v3` library (v0.9.2) targets **esp32 core 2.x**. The installed core is **3.3.7**, which has breaking API changes in `EspClass` and C++ functional interrupt handling.
+**Root cause:** `ropg/heltec_esp32_lora_v3` library (v0.9.2) targets **esp32 core 2.x**. The installed core was **3.3.7**, which has breaking API changes in `EspClass` and C++ functional interrupt handling.
 
-**Fix (attempted, failed due to disk space):** Downgrade to last stable 2.x core:
+**Fix:** Uninstall 3.x (5.5G) first — disk was 97% full (471M free) with no room for both cores — then install 2.x:
 ```bash
+arduino-cli core uninstall esp32:esp32   # frees ~5.5G (3.x + all tools)
 arduino-cli core install esp32:esp32@2.0.17
 ```
-Failed with: `no space left on device` during toolchain extraction.
 
 ---
 
-## Current Status
+### 6. Missing `libstdc++.so.6` for 2.x toolchain
 
-| Step | Status |
+The esp32 2.x toolchain (`xtensa-esp32s3-elf-gcc`) is also a soft-float ARM binary and additionally requires `libstdc++.so.6`.
+
+**Fix:**
+```bash
+sudo apt-get install -y libstdc++6-armel-cross
+sudo ldconfig
+```
+
+---
+
+## Final Working State ✓ CONFIRMED
+
+**Compile output (EXIT:0):**
+```
+Sketch uses 367593 bytes (10%) of program storage space. Maximum is 3342336 bytes.
+Global variables use 21180 bytes (6%) of dynamic memory, leaving 306500 bytes for local variables. Maximum is 327680 bytes.
+```
+
+**Compile succeeds with:**
+
+| Component | Version |
 |---|---|
-| arduino-cli installed | done |
-| esp32:esp32 core installed (3.3.7) | done |
-| Soft-float toolchain fix (`ld-linux.so.3`) | done |
-| `heltec_unofficial` library installed | done |
-| `RadioLib`, `SSD1306`, `HotButton` installed | done |
-| Linker errors (core 2.x vs 3.x incompatibility) | **blocked** |
-| Downgrade to `esp32:esp32@2.0.17` | **blocked — disk full** |
+| `esp32:esp32` core | 2.0.17 |
+| `Heltec_ESP32_LoRa_v3` | 0.9.2 (from github.com/ropg/heltec_esp32_lora_v3) |
+| `RadioLib` | 7.6.0 |
+| ESP8266/ESP32 OLED SSD1306 driver | 4.6.2 |
+| `HotButton` | 0.1.1 |
 
----
+**System packages required (soft-float ARM toolchain support):**
+```bash
+sudo apt-get install -y libc6-armel-cross libgcc-s1-armel-cross libstdc++6-armel-cross
+sudo ln -s /usr/arm-linux-gnueabi/lib/ld-linux.so.3 /lib/ld-linux.so.3
+echo "/usr/arm-linux-gnueabi/lib" | sudo tee /etc/ld.so.conf.d/armel-cross.conf
+sudo ldconfig
+```
 
-## Next Steps
+**Full compile command:**
+```bash
+arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 LoRa_rx_tx
+```
 
-1. **Free disk space** — the esp32 2.x toolchain needs ~500 MB to extract. Options:
-   - Remove unused files: `sudo apt-get autoremove && sudo apt-get clean`
-   - Remove the 3.x core if 2.x replaces it: `arduino-cli core uninstall esp32:esp32` before installing 2.x
-   - Check: `df -h /` and `du -sh ~/.arduino15/`
-
-2. **Install core 2.x:**
-   ```bash
-   arduino-cli core uninstall esp32:esp32
-   arduino-cli core install esp32:esp32@2.0.17
-   ```
-
-3. **Retry compile:**
-   ```bash
-   arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 LoRa_rx_tx
-   ```
+> Note: harmless `ERROR: ld.so: object '/usr/lib/arm-linux-gnueabihf/libarmmem-${PLATFORM}.so' from /etc/ld.so.preload cannot be preloaded` warnings appear on every compiled file — these are benign and can be ignored.
