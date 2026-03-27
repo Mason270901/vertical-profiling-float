@@ -3,6 +3,10 @@
 # RPI programmer
 If using an RPI to program, use a 32G SD card, the 16G might work but it gets very tight.
 
+# RPI Details
+Below, I started with a RPI 2, and 2025-12-04-raspios-trixie-armhf.img
+
+
 # Board
 
 * Board: https://heltec.org/project/wifi-lora-32-v3/
