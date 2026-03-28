@@ -28,6 +28,25 @@
 // transmissting without an antenna can damage your hardware.
 #define TRANSMIT_POWER      0
 
+#define RADIOLIB2(action) \
+  _radiolib_status = action;
+  // Serial.print("[RadioLib] "); \
+  // Serial.print(#action); \
+  // Serial.print(" returned "); \
+  // Serial.print(_radiolib_status); \
+  // Serial.print(" ("); \
+  // Serial.print(radiolib_result_string(_radiolib_status)); \
+  // Serial.println(")");
+
+#define RADIOLIB_OR_HALT2(action) \
+  RADIOLIB2(action); \
+  if (_radiolib_status != RADIOLIB_ERR_NONE) { \
+    Serial.println("[RadioLib] Halted"); \
+    while (true) { \
+        RADIOLIB_DO_DURING_HALT; \
+    } \
+  }
+
 String rxdata;
 volatile bool rxFlag = false;
 long counter = 0;
@@ -60,21 +79,21 @@ void loop() {
   
   // Transmit a packet every PAUSE seconds or when the button is pressed
   if ( (millis() - last_tx > (PAUSE)) ) {
-    both.printf("TX [%s] ", String(counter).c_str());
+    both.printf("Vert TX [%s] ", String(counter).c_str());
     radio.clearDio1Action();
     heltec_led(50); // 50% brightness is plenty for this LED
     tx_time = millis();
-    RADIOLIB(radio.transmit(String(counter++).c_str()));
+    RADIOLIB2(radio.transmit(String(counter++).c_str()));
     tx_time = millis() - tx_time;
     heltec_led(0);
     if (_radiolib_status == RADIOLIB_ERR_NONE) {
-      both.printf("OK (%i ms)\n", (int)tx_time);
+      both.printf("OK (%i ms)\r\n", (int)tx_time);
     } else {
-      both.printf("fail (%i)\n", _radiolib_status);
+      both.printf("fail (%i)\r\n", _radiolib_status);
     }
     last_tx = millis();
     radio.setDio1Action(rx);
-    RADIOLIB_OR_HALT(radio.startReceive(RADIOLIB_SX126X_RX_TIMEOUT_INF));
+    RADIOLIB_OR_HALT2(radio.startReceive(RADIOLIB_SX126X_RX_TIMEOUT_INF));
   } else {
     // 
   }
@@ -88,7 +107,7 @@ void loop() {
       both.printf("  RSSI: %.2f dBm\r\n", radio.getRSSI());
       both.printf("  SNR: %.2f dB\r\n", radio.getSNR());
     }
-    RADIOLIB_OR_HALT(radio.startReceive(RADIOLIB_SX126X_RX_TIMEOUT_INF));
+    RADIOLIB_OR_HALT2(radio.startReceive(RADIOLIB_SX126X_RX_TIMEOUT_INF));
   }
 }
 
