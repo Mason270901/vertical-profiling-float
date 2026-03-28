@@ -1,5 +1,11 @@
 # vertical-profiling-float
 
+# Operation
+
+```bash
+make && make program && screen -L -Logfile "logs/$(date +%Y%m%d_%H%M%S)_session-log.txt" /dev/ttyUSB0 115200
+```
+
 # RPI programmer
 If using an RPI to program, use a 32G SD card, the 16G might work but it gets very tight.
 
