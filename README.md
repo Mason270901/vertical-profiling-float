@@ -84,3 +84,4 @@ arduino-cli board listall heltec
 
 # WWW
 * https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js
+* https://github.com/MickTheMechanic/FLIR-style-thermal-color-palettes/blob/main/IRONBOW.c
