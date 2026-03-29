@@ -84,7 +84,7 @@ void setup() {
   Serial.println();
 
   if (!LittleFS.begin()) {
-    Serial.println("LittleFS mount failed — did you run make fs-flash?");
+    Serial.println("LittleFS mount failed — did you run `make program-data` ?");
     while (1);
   }
   Serial.println("LittleFS mounted.");
@@ -134,18 +134,16 @@ void loop() {
         // LED control endpoints
         if (path == "/H") {
           digitalWrite(LED_BUILTIN, HIGH);
-          client.println("HTTP/1.1 200 OK");
-          client.println("Content-Type: text/plain");
+          client.println("HTTP/1.1 302 Found");
+          client.println("Location: /");
           client.println("Connection: close");
           client.println();
-          client.println("LED ON");
         } else if (path == "/L") {
           digitalWrite(LED_BUILTIN, LOW);
-          client.println("HTTP/1.1 200 OK");
-          client.println("Content-Type: text/plain");
+          client.println("HTTP/1.1 302 Found");
+          client.println("Location: /");
           client.println("Connection: close");
           client.println();
-          client.println("LED OFF");
         } else {
           if (!serveFile(client, path)) {
             send404(client);
