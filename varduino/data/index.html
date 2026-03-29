@@ -106,7 +106,7 @@
     #chart .tick line,
     #chart .domain     { stroke: #2e3250; }
     #chart .tick text  { fill: #64748b; font-size: 10px; font-family: 'Segoe UI', system-ui, sans-serif; }
-    #chart .line-path  { fill: none; stroke: #4f8ef7; stroke-width: 2px; stroke-linejoin: round; stroke-linecap: round; }
+    #chart .line-path  { fill: none; stroke-width: 2px; stroke-linejoin: round; stroke-linecap: round; }
     #chart .area-path  { fill: url(#areaGradient); }
     #chart .dot        { fill: #4f8ef7; stroke: #1c1f2e; stroke-width: 1.5px; cursor: pointer; transition: r .1s; }
     #chart .dot:hover  { fill: #93c5fd; r: 5px; }
@@ -287,6 +287,17 @@
       .nice()
       .range([h, 0]);
 
+    // Gradient def for line stroke — maps value (y) to color, must be after yScale
+    const lineGrad = defs.append('linearGradient')
+      .attr('id', 'lineGradient')
+      .attr('gradientUnits', 'userSpaceOnUse')
+      .attr('x1', 0).attr('x2', 0)
+      .attr('y1', yScale(min))
+      .attr('y2', yScale(max));
+    lineGrad.append('stop').attr('offset', '0%')  .attr('stop-color', '#1d4ed8');  // low values
+    lineGrad.append('stop').attr('offset', '50%') .attr('stop-color', '#4f8ef7');  // mid
+    lineGrad.append('stop').attr('offset', '100%').attr('stop-color', '#38bdf8');  // high values
+
     // Grid lines
     svg.append('g')
       .attr('class', 'grid')
@@ -315,6 +326,25 @@
       .style('fill', '#64748b').style('font-size', '10px')
       .text('Value');
 
+    // Reference band: 10,000 – 20,000
+    const bandY1 = yScale(16000);
+    const bandY2 = yScale(13000);
+    if (bandY2 > bandY1) {
+      svg.append('rect')
+        .attr('x', 0).attr('width', w)
+        .attr('y', bandY1)
+        .attr('height', bandY2 - bandY1)
+        .attr('fill', 'rgba(52,211,153,0.07)')
+        .attr('stroke', 'rgba(52,211,153,0.30)')
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '4,3');
+      svg.append('text')
+        .attr('x', w - 4).attr('y', bandY1 + 11)
+        .attr('text-anchor', 'end')
+        .style('fill', '#34d399').style('font-size', '9px')
+        .text('13k – 16k region');
+    }
+
     // Area
     const areaGen = d3.area()
       .x((_, i) => xScale(i))
@@ -334,6 +364,7 @@
     const linePath = svg.append('path')
       .datum(arr)
       .attr('class', 'line-path')
+      .style('stroke', 'url(#lineGradient)')
       .attr('d', lineGen);
 
     const totalLength = linePath.node().getTotalLength();
