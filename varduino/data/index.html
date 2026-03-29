@@ -125,35 +125,6 @@
       border: 1px solid #4f8ef7;
     }
 
-    /* Number grid */
-    #numgrid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-      gap: .5rem;
-    }
-    .num-cell {
-      background: #0f172a;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: .4rem .6rem;
-      font-size: .78rem;
-      font-family: 'Courier New', monospace;
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      opacity: 0;
-      transform: translateY(6px);
-      transition: opacity .3s, transform .3s;
-    }
-    .num-cell.visible { opacity: 1; transform: translateY(0); }
-    .num-idx { color: var(--muted); font-size: .65rem; }
-    .num-val { color: var(--accent); }
-    #placeholder {
-      color: var(--muted);
-      font-size: .9rem;
-      text-align: center;
-      padding: 2rem 0;
-    }
   </style>
 </head>
 <body>
@@ -185,7 +156,6 @@
     <button class="btn-fetch" id="btn-fetch" onclick="fetchData()">&#x21BB; Fetch Data</button>
   </div>
   <div id="chart"></div>
-  <div id="numgrid"><div id="placeholder">Press &ldquo;Fetch Data&rdquo; to load readings.</div></div>
 </div>
 
 <script>
@@ -234,8 +204,7 @@
       const json = await res.json();
       renderData(json.data);
     } catch (e) {
-      document.getElementById('placeholder').textContent = 'Error: ' + e.message;
-      document.getElementById('placeholder').style.display = 'block';
+      document.getElementById('data-meta').textContent = 'Error: ' + e.message;
     } finally {
       btn.disabled = false;
       btn.textContent = '\u21BB Fetch Data';
@@ -287,16 +256,15 @@
       .nice()
       .range([h, 0]);
 
-    // Gradient def for line stroke — maps value (y) to color, must be after yScale
+    // Gradient def for line stroke — maps left→right (x) to color
     const lineGrad = defs.append('linearGradient')
       .attr('id', 'lineGradient')
       .attr('gradientUnits', 'userSpaceOnUse')
-      .attr('x1', 0).attr('x2', 0)
-      .attr('y1', yScale(min))
-      .attr('y2', yScale(max));
-    lineGrad.append('stop').attr('offset', '0%')  .attr('stop-color', '#1d4ed8');  // low values
-    lineGrad.append('stop').attr('offset', '50%') .attr('stop-color', '#4f8ef7');  // mid
-    lineGrad.append('stop').attr('offset', '100%').attr('stop-color', '#38bdf8');  // high values
+      .attr('x1', 0).attr('x2', w)
+      .attr('y1', 0).attr('y2', 0);
+    lineGrad.append('stop').attr('offset', '0%')  .attr('stop-color', '#7c3aed');  // start: violet
+    lineGrad.append('stop').attr('offset', '50%') .attr('stop-color', '#4f8ef7');  // mid: blue
+    lineGrad.append('stop').attr('offset', '100%').attr('stop-color', '#38bdf8');  // end: cyan
 
     // Grid lines
     svg.append('g')
@@ -356,25 +324,16 @@
       .attr('class', 'area-path')
       .attr('d', areaGen);
 
-    // Line — animate with stroke-dashoffset
+    // Line
     const lineGen = d3.line()
       .x((_, i) => xScale(i))
       .y(d => yScale(d));
 
-    const linePath = svg.append('path')
+    svg.append('path')
       .datum(arr)
       .attr('class', 'line-path')
       .style('stroke', 'url(#lineGradient)')
       .attr('d', lineGen);
-
-    const totalLength = linePath.node().getTotalLength();
-    linePath
-      .attr('stroke-dasharray', totalLength)
-      .attr('stroke-dashoffset', totalLength)
-      .transition()
-        .duration(900)
-        .ease(d3.easeCubicInOut)
-        .attr('stroke-dashoffset', 0);
 
     // Dots + tooltip
     const tip = d3.select('#d3-tooltip');
@@ -394,21 +353,6 @@
              .style('top',   (event.clientY - 28) + 'px');
         })
         .on('mouseleave', () => tip.style('opacity', 0));
-
-    // Number grid
-    const grid = document.getElementById('numgrid');
-    const ph   = document.getElementById('placeholder');
-    if (ph) ph.remove();
-    grid.innerHTML = '';
-    arr.forEach((v, i) => {
-      const cell = document.createElement('div');
-      cell.className = 'num-cell';
-      cell.innerHTML =
-        '<span class="num-idx">#' + String(i).padStart(2,'0') + '</span>' +
-        '<span class="num-val">' + v.toLocaleString() + '</span>';
-      grid.appendChild(cell);
-      setTimeout(() => cell.classList.add('visible'), i * 22);
-    });
   }
 </script>
 
