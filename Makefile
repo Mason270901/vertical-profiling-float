@@ -11,8 +11,8 @@ FS_PORT    ?= /dev/ttyUSB0
 # Partition table: default_8MB.csv — spiffs offset=0x670000, size=0x180000 (1572864 bytes)
 FS_OFFSET  := 0x670000
 FS_SIZE    := 1572864
-FS_DATA    := WiFiAccessPoint/data
-FS_IMAGE   := WiFiAccessPoint/littlefs.bin
+FS_DATA    := varduino/data
+FS_IMAGE   := varduino/littlefs.bin
 
 all: compile
 
@@ -20,33 +20,39 @@ all: compile
 docker-build:
 	$(MAKE) -C docker all
 
-# Compile inside Docker — output lands in WiFiAccessPoint/build/ on the host via the volume mount
+# Compile inside Docker — output lands in varduino/build/ on the host via the volume mount
 compile-docker:
 	docker run --rm -v $(PWD):/src $(IMAGE) \
 		arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 $(ARDUINO_JOBS) \
-		--output-dir /src/WiFiAccessPoint/build WiFiAccessPoint
+		--output-dir /src/varduino/build varduino
 
 # Push the build folder to the Pi (replaces the remote build/ dir entirely)
 push:
-	rsync -av --delete WiFiAccessPoint/build/ $(TARGET_PI):~/vertical-profiling-float/WiFiAccessPoint/build/
+	rsync -av --delete varduino/build/ $(TARGET_PI):~/vertical-profiling-float/varduino/build/
 
 # --- targets below require arduino-cli installed directly on the host ---
 
 # use 3 jobs to reduce the memory pressure
 compile:
-	arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 $(ARDUINO_JOBS) WiFiAccessPoint
+	arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 $(ARDUINO_JOBS) varduino
 
 program:
-	arduino-cli upload -p /dev/ttyUSB0 --fqbn esp32:esp32:heltec_wifi_lora_32_V3 WiFiAccessPoint
+	arduino-cli upload -p /dev/ttyUSB0 --fqbn esp32:esp32:heltec_wifi_lora_32_V3 varduino
 
 program-build:
 	arduino-cli upload -p /dev/ttyUSB0 --fqbn esp32:esp32:heltec_wifi_lora_32_V3 \
-		--input-dir WiFiAccessPoint/build WiFiAccessPoint
+		--input-dir varduino/build varduino
 
 # Build a LittleFS image from WiFiAccessPoint/data/ on the host
 # Usage: make fs-build
 build-fs:
 	$(MKLITTLEFS) -c $(FS_DATA) -s $(FS_SIZE) -b 4096 -p 256 $(FS_IMAGE)
+
+clean:
+	rm -f $(FS_IMAGE)
+
+clean-cache:
+	arduino-cli cache clean
 
 # Flash the LittleFS image to the spiffs partition (offset 0x670000)
 # Usage: make fs-flash [FS_PORT=/dev/ttyUSB0]
