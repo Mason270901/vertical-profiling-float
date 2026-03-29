@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Vertical Profiling Float</title>
+  <script src="/d3.min.js"></script>
   <style>
     :root {
       --bg:       #0f1117;
@@ -96,40 +97,29 @@
     }
     #data-meta { font-size: .8rem; color: var(--muted); }
 
-    /* Bar chart grid */
+    /* D3 chart container */
     #chart {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(12px, 1fr));
-      align-items: flex-end;
-      gap: 3px;
-      height: 140px;
+      width: 100%;
       margin-bottom: 1.2rem;
     }
-    .bar {
-      background: var(--bar-fill);
-      border-radius: 3px 3px 0 0;
-      min-height: 4px;
-      transition: height .5s cubic-bezier(.4,0,.2,1), opacity .4s;
-      opacity: 0;
-      cursor: pointer;
-      position: relative;
-    }
-    .bar.visible { opacity: 1; }
-    .bar:hover { background: #93c5fd; }
-    .bar:hover::after {
-      content: attr(data-val);
-      position: absolute;
-      bottom: calc(100% + 4px);
-      left: 50%;
-      transform: translateX(-50%);
+    #chart svg { display: block; overflow: visible; }
+    #chart .tick line,
+    #chart .domain   { stroke: #2e3250; }
+    #chart .tick text { fill: #64748b; font-size: 10px; font-family: 'Segoe UI', system-ui, sans-serif; }
+    #chart .bar-rect  { cursor: pointer; }
+    #d3-tooltip {
+      position: fixed;
       background: #334155;
-      color: #fff;
-      font-size: .7rem;
-      padding: 2px 6px;
-      border-radius: 4px;
-      white-space: nowrap;
+      color: #e2e8f0;
+      font-size: .72rem;
+      padding: 4px 9px;
+      border-radius: 5px;
       pointer-events: none;
-      z-index: 10;
+      opacity: 0;
+      transition: opacity .12s;
+      white-space: nowrap;
+      z-index: 100;
+      border: 1px solid #4f8ef7;
     }
 
     /* Number grid */
@@ -258,20 +248,96 @@
     const avg  = (arr.reduce((a,b)=>a+b,0) / arr.length).toFixed(1);
     meta.textContent = arr.length + ' samples \u2014 min ' + min + '  max ' + max + '  avg ' + avg;
 
-    // Bar chart
-    const chart = document.getElementById('chart');
-    chart.innerHTML = '';
-    const range = max - min || 1;
-    arr.forEach((v, i) => {
-      const bar = document.createElement('div');
-      bar.className = 'bar';
-      bar.dataset.val = v;
-      const pct = ((v - min) / range) * 100;
-      bar.style.height = Math.max(4, pct * 1.3) + 'px';
-      chart.appendChild(bar);
-      // Stagger animation
-      setTimeout(() => bar.classList.add('visible'), i * 18);
-    });
+    // D3 bar chart
+    const container = document.getElementById('chart');
+    container.innerHTML = '';
+
+    const margin = { top: 12, right: 12, bottom: 28, left: 58 };
+    const totalW  = container.clientWidth  || 580;
+    const totalH  = 200;
+    const w = totalW  - margin.left - margin.right;
+    const h = totalH  - margin.top  - margin.bottom;
+
+    const svg = d3.select('#chart')
+      .append('svg')
+        .attr('width', '100%')
+        .attr('viewBox', `0 0 ${totalW} ${totalH}`)
+      .append('g')
+        .attr('transform', `translate(${margin.left},${margin.top})`);
+
+    const xScale = d3.scaleBand()
+      .domain(arr.map((_, i) => i))
+      .range([0, w])
+      .padding(0.18);
+
+    const yScale = d3.scaleLinear()
+      .domain([min - (max - min) * 0.05, max])
+      .nice()
+      .range([h, 0]);
+
+    // Grid lines
+    svg.append('g')
+      .attr('class', 'grid')
+      .call(d3.axisLeft(yScale).ticks(5).tickSize(-w).tickFormat(''))
+      .selectAll('line').style('stroke', '#2e3250').style('stroke-dasharray', '3,3');
+    svg.select('.grid .domain').remove();
+
+    // X axis — show every 8th tick label
+    svg.append('g')
+      .attr('transform', `translate(0,${h})`)
+      .call(
+        d3.axisBottom(xScale)
+          .tickValues(xScale.domain().filter((_, i) => i % 8 === 0))
+          .tickFormat(d => '#' + String(d).padStart(2,'0'))
+      );
+
+    // Y axis
+    svg.append('g')
+      .call(d3.axisLeft(yScale).ticks(5).tickFormat(d3.format(',d')));
+
+    // Y axis label
+    svg.append('text')
+      .attr('transform', 'rotate(-90)')
+      .attr('x', -h / 2).attr('y', -44)
+      .attr('text-anchor', 'middle')
+      .style('fill', '#64748b').style('font-size', '10px')
+      .text('Value');
+
+    // Tooltip
+    const tip = d3.select('#d3-tooltip');
+
+    // Bars — animate in with staggered delay
+    const colorScale = d3.scaleSequential()
+      .domain([min, max])
+      .interpolator(d3.interpolate('#2563eb', '#38bdf8'));
+
+    svg.selectAll('.bar-rect')
+      .data(arr)
+      .join('rect')
+        .attr('class', 'bar-rect')
+        .attr('x',     (_, i) => xScale(i))
+        .attr('width', xScale.bandwidth())
+        .attr('y',      h)
+        .attr('height', 0)
+        .attr('fill',  d => colorScale(d))
+        .attr('rx', 2)
+        .on('mousemove', function(event, d) {
+          d3.select(this).attr('fill', '#93c5fd');
+          tip.style('opacity', 1)
+             .html('<strong>#' + arr.indexOf(d) + '</strong> &nbsp;' + d.toLocaleString())
+             .style('left',  (event.clientX + 14) + 'px')
+             .style('top',   (event.clientY - 28) + 'px');
+        })
+        .on('mouseleave', function(_, d) {
+          d3.select(this).attr('fill', colorScale(d));
+          tip.style('opacity', 0);
+        })
+      .transition()
+        .duration(500)
+        .delay((_, i) => i * 14)
+        .ease(d3.easeCubicOut)
+        .attr('y',      d => yScale(d))
+        .attr('height', d => h - yScale(d));
 
     // Number grid
     const grid = document.getElementById('numgrid');
@@ -290,5 +356,6 @@
   }
 </script>
 
+<div id="d3-tooltip"></div>
 </body>
 </html>
