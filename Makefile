@@ -10,25 +10,25 @@ all: compile
 docker-build:
 	$(MAKE) -C docker all
 
-# Compile inside Docker — output lands in SimpleWiFiServer/build/ on the host via the volume mount
+# Compile inside Docker — output lands in WiFiAccessPoint/build/ on the host via the volume mount
 compile-docker:
 	docker run --rm -v $(PWD):/src $(IMAGE) \
 		arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 $(ARDUINO_JOBS) \
-		--output-dir /src/SimpleWiFiServer/build SimpleWiFiServer
+		--output-dir /src/WiFiAccessPoint/build WiFiAccessPoint
 
 # Push the build folder to the Pi (replaces the remote build/ dir entirely)
 push:
-	rsync -av --delete SimpleWiFiServer/build/ $(TARGET_PI):~/vertical-profiling-float/SimpleWiFiServer/build/
+	rsync -av --delete WiFiAccessPoint/build/ $(TARGET_PI):~/vertical-profiling-float/WiFiAccessPoint/build/
 
 # --- targets below require arduino-cli installed directly on the host ---
 
 # use 3 jobs to reduce the memory pressure
 compile:
-	arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 $(ARDUINO_JOBS) SimpleWiFiServer
+	arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 $(ARDUINO_JOBS) WiFiAccessPoint
 
 program:
-	arduino-cli upload -p /dev/ttyUSB0 --fqbn esp32:esp32:heltec_wifi_lora_32_V3 SimpleWiFiServer
+	arduino-cli upload -p /dev/ttyUSB0 --fqbn esp32:esp32:heltec_wifi_lora_32_V3 WiFiAccessPoint
 
 program-build:
 	arduino-cli upload -p /dev/ttyUSB0 --fqbn esp32:esp32:heltec_wifi_lora_32_V3 \
-		--input-dir SimpleWiFiServer/build SimpleWiFiServer
+		--input-dir WiFiAccessPoint/build WiFiAccessPoint

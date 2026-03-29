@@ -72,7 +72,7 @@ arduino-cli core install esp32:esp32@2.0.17
 ## 5. Compile
 
 ```bash
-arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 SimpleWiFiServer
+arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 WiFiAccessPoint
 ```
 
 ## Find the exact FQBN for your hardware revision with:

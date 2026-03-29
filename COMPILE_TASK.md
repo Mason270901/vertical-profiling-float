@@ -1,13 +1,13 @@
-# Compile Task: SimpleWiFiServer for Heltec WiFi LoRa 32 V3
+# Compile Task: WiFiAccessPoint for Heltec WiFi LoRa 32 V3
 
 ## Goal
 
-Compile `SimpleWiFiServer/SimpleWiFiServer.ino` on Raspberry Pi (ARMv7) using `arduino-cli` targeting the Heltec WiFi LoRa 32 V3 (ESP32S3-based).
+Compile `WiFiAccessPoint/WiFiAccessPoint.ino` on Raspberry Pi (ARMv7) using `arduino-cli` targeting the Heltec WiFi LoRa 32 V3 (ESP32S3-based).
 
-Source: https://github.com/Heltec-Aaron-Lee/WiFi_Kit_series/tree/master/libraries/WiFi/examples/SimpleWiFiServer
+Source: https://github.com/Heltec-Aaron-Lee/WiFi_Kit_series/tree/master/libraries/WiFi/examples/WiFiAccessPoint
 
 ```bash
-arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 SimpleWiFiServer
+arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 WiFiAccessPoint
 ```
 
 ---
@@ -92,13 +92,13 @@ sudo ldconfig
 
 ---
 
-### 6. Sketch migration: LoRa_rx_tx → SimpleWiFiServer
+### 6. Sketch migration: LoRa_rx_tx → WiFiAccessPoint
 
-`LoRa_rx_tx` was removed and replaced with the Heltec `SimpleWiFiServer` WiFi example.
+`LoRa_rx_tx` was removed and replaced with the Heltec `WiFiAccessPoint` example, which creates a WiFi AP and serves a web page to toggle an LED.
 
 The upstream example uses `NetworkServer`/`NetworkClient` (esp32 core 3.x API). Since the installed core is 2.0.17, the sketch was adapted to use `WiFiServer`/`WiFiClient` which are the equivalent 2.x API classes.
 
-`WiFi.h` is bundled with the `esp32:esp32` core — no additional libraries were required.
+`WiFi.h` and `WiFiAP.h` are both bundled with the `esp32:esp32` core — no additional libraries were required.
 
 ---
 
@@ -106,7 +106,7 @@ The upstream example uses `NetworkServer`/`NetworkClient` (esp32 core 3.x API). 
 
 **Compile output (EXIT:0):**
 ```
-Sketch uses 682897 bytes (20%) of program storage space. Maximum is 3342336 bytes.
+Sketch uses 683305 bytes (20%) of program storage space. Maximum is 3342336 bytes.
 Global variables use 44176 bytes (13%) of dynamic memory, leaving 283504 bytes for local variables. Maximum is 327680 bytes.
 ```
 
@@ -115,7 +115,7 @@ Global variables use 44176 bytes (13%) of dynamic memory, leaving 283504 bytes f
 | Component | Version |
 |---|---|
 | `esp32:esp32` core | 2.0.17 |
-| `WiFi.h` | bundled with core (no separate install) |
+| `WiFi.h`, `WiFiAP.h` | bundled with core (no separate install) |
 
 **System packages required (soft-float ARM toolchain support):**
 ```bash
@@ -127,7 +127,7 @@ sudo ldconfig
 
 **Full compile command:**
 ```bash
-arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 SimpleWiFiServer
+arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 WiFiAccessPoint
 ```
 
 > Note: harmless `ERROR: ld.so: object '/usr/lib/arm-linux-gnueabihf/libarmmem-${PLATFORM}.so' from /etc/ld.so.preload cannot be preloaded` warnings appear on every compiled file — these are benign and can be ignored.

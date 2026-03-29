@@ -1,62 +1,52 @@
 /*
- WiFi Web Server LED Blink
+  WiFiAccessPoint.ino creates a WiFi access point and provides a web server on it.
 
- A simple web server that lets you blink an LED via the web.
- This sketch will print the IP address of your WiFi Shield (once connected)
- to the Serial monitor. From there, you can open that address in a web browser
- to turn on and off the LED on pin 5.
+  Steps:
+  1. Connect to the access point "yourAP"
+  2. Point your web browser to http://192.168.4.1/H to turn the LED on
+     or http://192.168.4.1/L to turn it off
+     OR
+     Run raw TCP "GET /H" and "GET /L" on PuTTY terminal with
+     192.168.4.1 as IP address and 80 as port
 
- If the IP address of your shield is yourAddress:
- http://yourAddress/H turns the LED on
- http://yourAddress/L turns it off
+  Created for arduino-esp32 on 04 July, 2018
+  by Elochukwu Ifediora (fedy0)
 
- This example is written for a network using WPA2 encryption. For insecure
- WEP or WPA, change the Wifi.begin() call and use Wifi.setMinSecurity() accordingly.
-
- Circuit:
- * WiFi shield attached
- * LED attached to pin 5
-
- created for arduino 25 Nov 2012
- by Tom Igoe
-
-ported for sparkfun esp32
-31.01.2017 by Jan Hendrik Berlin
-
+  Source: https://github.com/Heltec-Aaron-Lee/WiFi_Kit_series/tree/master/libraries/WiFi/examples/WiFiAccessPoint
 */
 
 #include <WiFi.h>
+#include <WiFiAP.h>
 
-const char *ssid = "yourssid";
-const char *password = "yourpasswd";
+#ifndef LED_BUILTIN
+#define LED_BUILTIN 2  // Set the GPIO pin where you connected your test LED or comment this line out if your dev board has a built-in LED
+#endif
+
+// Set these to your desired credentials.
+const char *ssid = "yourAP";
+const char *password = "yourPassword";
 
 WiFiServer server(80);
 
 void setup() {
+  pinMode(LED_BUILTIN, OUTPUT);
+
   Serial.begin(115200);
-  pinMode(5, OUTPUT);  // set the LED pin mode
-
-  delay(10);
-
-  // We start by connecting to a WiFi network
-
   Serial.println();
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
+  Serial.println("Configuring access point...");
 
-  WiFi.begin(ssid, password);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  // You can remove the password parameter if you want the AP to be open.
+  // a valid password must have more than 7 characters
+  if (!WiFi.softAP(ssid, password)) {
+    log_e("Soft AP creation failed.");
+    while (1);
   }
-
-  Serial.println("");
-  Serial.println("WiFi connected.");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
+  IPAddress myIP = WiFi.softAPIP();
+  Serial.print("AP IP address: ");
+  Serial.println(myIP);
   server.begin();
+
+  Serial.println("Server started");
 }
 
 void loop() {
@@ -81,8 +71,8 @@ void loop() {
             client.println();
 
             // the content of the HTTP response follows the header:
-            client.print("Click <a href=\"/H\">here</a> to turn the LED on pin 5 on.<br>");
-            client.print("Click <a href=\"/L\">here</a> to turn the LED on pin 5 off.<br>");
+            client.print("Click <a href=\"/H\">here</a> to turn ON the LED.<br>");
+            client.print("Click <a href=\"/L\">here</a> to turn OFF the LED.<br>");
 
             // The HTTP response ends with another blank line:
             client.println();
@@ -97,10 +87,10 @@ void loop() {
 
         // Check to see if the client request was "GET /H" or "GET /L":
         if (currentLine.endsWith("GET /H")) {
-          digitalWrite(5, HIGH);  // GET /H turns the LED on
+          digitalWrite(LED_BUILTIN, HIGH);  // GET /H turns the LED on
         }
         if (currentLine.endsWith("GET /L")) {
-          digitalWrite(5, LOW);  // GET /L turns the LED off
+          digitalWrite(LED_BUILTIN, LOW);  // GET /L turns the LED off
         }
       }
     }
