@@ -52,8 +52,7 @@ sudo ldconfig
 
 ## 3. Install esp32 core (pinned to 2.0.17)
 
-Must use **2.0.17** — the `heltec_unofficial` library is incompatible with core 3.x.
-The core is ~2GB and takes ~20 mins to download/install on the Pi.
+Use core **2.0.17**. The core is ~2GB and takes ~20 mins to download/install on the Pi.
 A 15G SD card will be at ~64% after install (leaves ~5G free).
 
 ```bash
@@ -66,30 +65,14 @@ arduino-cli core update-index
 arduino-cli core install esp32:esp32@2.0.17
 ```
 
-## 4. Install libraries
+## 4. Libraries
 
-`heltec_unofficial.h` is not in the arduino-cli registry — install from GitHub zip:
-
-```bash
-arduino-cli config set library.enable_unsafe_install true
-
-wget -q https://github.com/ropg/heltec_esp32_lora_v3/archive/refs/heads/main.zip \
-  -O /tmp/heltec_unofficial.zip
-arduino-cli lib install --zip-path /tmp/heltec_unofficial.zip
-```
-
-Install the three required dependencies:
-
-```bash
-arduino-cli lib install "RadioLib"
-arduino-cli lib install "ESP8266 and ESP32 OLED driver for SSD1306 displays"
-arduino-cli lib install "HotButton"
-```
+`WiFi.h` is bundled with the `esp32:esp32` core — no additional libraries need to be installed.
 
 ## 5. Compile
 
 ```bash
-arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 LoRa_rx_tx
+arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 SimpleWiFiServer
 ```
 
 ## Find the exact FQBN for your hardware revision with:
