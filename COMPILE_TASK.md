@@ -1,11 +1,13 @@
-# Compile Task: LoRa_rx_tx for Heltec WiFi LoRa 32 V3
+# Compile Task: SimpleWiFiServer for Heltec WiFi LoRa 32 V3
 
 ## Goal
 
-Compile `LoRa_rx_tx/LoRa_rx_tx.ino` on Raspberry Pi (ARMv7) using `arduino-cli` targeting the Heltec WiFi LoRa 32 V3 (ESP32S3-based).
+Compile `SimpleWiFiServer/SimpleWiFiServer.ino` on Raspberry Pi (ARMv7) using `arduino-cli` targeting the Heltec WiFi LoRa 32 V3 (ESP32S3-based).
+
+Source: https://github.com/Heltec-Aaron-Lee/WiFi_Kit_series/tree/master/libraries/WiFi/examples/SimpleWiFiServer
 
 ```bash
-arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 LoRa_rx_tx
+arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 SimpleWiFiServer
 ```
 
 ---
@@ -48,27 +50,17 @@ sudo ldconfig
 
 ---
 
-### 3. Missing library: `heltec_unofficial.h`
+### 3. Missing library: `heltec_unofficial.h` (LoRa_rx_tx only — resolved, sketch removed)
 
-The sketch uses `#include <heltec_unofficial.h>` from the unofficial library by [ropg](https://github.com/ropg/heltec_esp32_lora_v3). This is not in the arduino-cli registry.
+The original LoRa_rx_tx sketch used `#include <heltec_unofficial.h>` from the unofficial library by [ropg](https://github.com/ropg/heltec_esp32_lora_v3).
 
-**Fix:**
+**Fix (historical):**
 ```bash
-# enable_unsafe_install must be set first (edit arduino-cli.yaml or:)
 arduino-cli config set library.enable_unsafe_install true
 
 wget -q https://github.com/ropg/heltec_esp32_lora_v3/archive/refs/heads/main.zip \
   -O /tmp/heltec_unofficial.zip
 arduino-cli lib install --zip-path /tmp/heltec_unofficial.zip
-```
-
----
-
-### 4. Missing dependency libraries (resolved one by one)
-
-`heltec_unofficial.h` requires three additional libraries not auto-installed:
-
-```bash
 arduino-cli lib install "RadioLib"
 arduino-cli lib install "ESP8266 and ESP32 OLED driver for SSD1306 displays"
 arduino-cli lib install "HotButton"
@@ -76,19 +68,11 @@ arduino-cli lib install "HotButton"
 
 ---
 
-### 5. Linker errors — undefined references to `cleanupFunctional`, `EspClass`
+### 4. Linker errors — undefined references to `cleanupFunctional`, `EspClass` (LoRa_rx_tx — resolved)
 
-After all libraries are installed, the link step fails:
+`ropg/heltec_esp32_lora_v3` (v0.9.2) targets **esp32 core 2.x**. Core 3.x breaks API compatibility.
 
-```
-undefined reference to `cleanupFunctional'
-undefined reference to `ESP'
-undefined reference to `_ZN8EspClass20getFlashFrequencyMHzEv'
-```
-
-**Root cause:** `ropg/heltec_esp32_lora_v3` library (v0.9.2) targets **esp32 core 2.x**. The installed core was **3.3.7**, which has breaking API changes in `EspClass` and C++ functional interrupt handling.
-
-**Fix:** Uninstall 3.x (5.5G) first — disk was 97% full (471M free) with no room for both cores — then install 2.x:
+**Fix:** Downgrade to core 2.x:
 ```bash
 arduino-cli core uninstall esp32:esp32   # frees ~5.5G (3.x + all tools)
 arduino-cli core install esp32:esp32@2.0.17
@@ -96,7 +80,7 @@ arduino-cli core install esp32:esp32@2.0.17
 
 ---
 
-### 6. Missing `libstdc++.so.6` for 2.x toolchain
+### 5. Missing `libstdc++.so.6` for 2.x toolchain
 
 The esp32 2.x toolchain (`xtensa-esp32s3-elf-gcc`) is also a soft-float ARM binary and additionally requires `libstdc++.so.6`.
 
@@ -108,12 +92,22 @@ sudo ldconfig
 
 ---
 
+### 6. Sketch migration: LoRa_rx_tx → SimpleWiFiServer
+
+`LoRa_rx_tx` was removed and replaced with the Heltec `SimpleWiFiServer` WiFi example.
+
+The upstream example uses `NetworkServer`/`NetworkClient` (esp32 core 3.x API). Since the installed core is 2.0.17, the sketch was adapted to use `WiFiServer`/`WiFiClient` which are the equivalent 2.x API classes.
+
+`WiFi.h` is bundled with the `esp32:esp32` core — no additional libraries were required.
+
+---
+
 ## Final Working State ✓ CONFIRMED
 
 **Compile output (EXIT:0):**
 ```
-Sketch uses 367593 bytes (10%) of program storage space. Maximum is 3342336 bytes.
-Global variables use 21180 bytes (6%) of dynamic memory, leaving 306500 bytes for local variables. Maximum is 327680 bytes.
+Sketch uses 682897 bytes (20%) of program storage space. Maximum is 3342336 bytes.
+Global variables use 44176 bytes (13%) of dynamic memory, leaving 283504 bytes for local variables. Maximum is 327680 bytes.
 ```
 
 **Compile succeeds with:**
@@ -121,10 +115,7 @@ Global variables use 21180 bytes (6%) of dynamic memory, leaving 306500 bytes fo
 | Component | Version |
 |---|---|
 | `esp32:esp32` core | 2.0.17 |
-| `Heltec_ESP32_LoRa_v3` | 0.9.2 (from github.com/ropg/heltec_esp32_lora_v3) |
-| `RadioLib` | 7.6.0 |
-| ESP8266/ESP32 OLED SSD1306 driver | 4.6.2 |
-| `HotButton` | 0.1.1 |
+| `WiFi.h` | bundled with core (no separate install) |
 
 **System packages required (soft-float ARM toolchain support):**
 ```bash
@@ -136,7 +127,7 @@ sudo ldconfig
 
 **Full compile command:**
 ```bash
-arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 LoRa_rx_tx
+arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 SimpleWiFiServer
 ```
 
 > Note: harmless `ERROR: ld.so: object '/usr/lib/arm-linux-gnueabihf/libarmmem-${PLATFORM}.so' from /etc/ld.so.preload cannot be preloaded` warnings appear on every compiled file — these are benign and can be ignored.

@@ -10,25 +10,25 @@ all: compile
 docker-build:
 	$(MAKE) -C docker all
 
-# Compile inside Docker — output lands in LoRa_rx_tx/build/ on the host via the volume mount
+# Compile inside Docker — output lands in SimpleWiFiServer/build/ on the host via the volume mount
 compile-docker:
 	docker run --rm -v $(PWD):/src $(IMAGE) \
 		arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 $(ARDUINO_JOBS) \
-		--output-dir /src/LoRa_rx_tx/build LoRa_rx_tx
+		--output-dir /src/SimpleWiFiServer/build SimpleWiFiServer
 
 # Push the build folder to the Pi (replaces the remote build/ dir entirely)
 push:
-	rsync -av --delete LoRa_rx_tx/build/ $(TARGET_PI):~/vertical-profiling-float/LoRa_rx_tx/build/
+	rsync -av --delete SimpleWiFiServer/build/ $(TARGET_PI):~/vertical-profiling-float/SimpleWiFiServer/build/
 
 # --- targets below require arduino-cli installed directly on the host ---
 
 # use 3 jobs to reduce the memory pressure
 compile:
-	arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 $(ARDUINO_JOBS) LoRa_rx_tx
+	arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 $(ARDUINO_JOBS) SimpleWiFiServer
 
 program:
-	arduino-cli upload -p /dev/ttyUSB0 --fqbn esp32:esp32:heltec_wifi_lora_32_V3 LoRa_rx_tx
+	arduino-cli upload -p /dev/ttyUSB0 --fqbn esp32:esp32:heltec_wifi_lora_32_V3 SimpleWiFiServer
 
 program-build:
 	arduino-cli upload -p /dev/ttyUSB0 --fqbn esp32:esp32:heltec_wifi_lora_32_V3 \
-		--input-dir LoRa_rx_tx/build LoRa_rx_tx
+		--input-dir SimpleWiFiServer/build SimpleWiFiServer
