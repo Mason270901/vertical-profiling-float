@@ -1,8 +1,294 @@
 <!DOCTYPE html>
-<html>
-<head><title>Vertical Profiling Float</title></head>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vertical Profiling Float</title>
+  <style>
+    :root {
+      --bg:       #0f1117;
+      --surface:  #1c1f2e;
+      --border:   #2e3250;
+      --accent:   #4f8ef7;
+      --green:    #22c55e;
+      --red:      #ef4444;
+      --yellow:   #f59e0b;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --bar-fill: #4f8ef7;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    header h1 { font-size: 1.6rem; letter-spacing: .03em; }
+    header p  { color: var(--muted); font-size: .85rem; margin-top: .3rem; }
+
+    /* ── Cards ─────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.4rem 1.6rem;
+      margin: 0 auto 1.5rem;
+      max-width: 640px;
+    }
+    .card h2 { font-size: 1rem; color: var(--muted); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: .06em; }
+
+    /* ── LED panel ──────────────────────────────────────────── */
+    .led-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .led-indicator {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--muted);
+      box-shadow: 0 0 0 3px rgba(100,116,139,.2);
+      flex-shrink: 0;
+      transition: background .3s, box-shadow .3s;
+    }
+    .led-indicator.on  { background: var(--green);  box-shadow: 0 0 10px var(--green); }
+    .led-indicator.off { background: var(--red);    box-shadow: 0 0 8px var(--red); }
+    .led-label { font-size: .95rem; min-width: 60px; }
+    .btn-group { display: flex; gap: .6rem; margin-left: auto; flex-wrap: wrap; }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      padding: .5rem 1.1rem;
+      font-size: .9rem;
+      font-weight: 600;
+      transition: opacity .15s, transform .1s;
+    }
+    button:active { transform: scale(.96); }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    .btn-on  { background: var(--green); color: #fff; }
+    .btn-off { background: var(--red);   color: #fff; }
+    .btn-fetch { background: var(--accent); color: #fff; }
+
+    /* ── Toast ──────────────────────────────────────────────── */
+    #toast {
+      display: none;
+      font-size: .82rem;
+      color: var(--yellow);
+      margin-top: .7rem;
+    }
+
+    /* ── Data panel ─────────────────────────────────────────── */
+    .data-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+      gap: .6rem;
+    }
+    #data-meta { font-size: .8rem; color: var(--muted); }
+
+    /* Bar chart grid */
+    #chart {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(12px, 1fr));
+      align-items: flex-end;
+      gap: 3px;
+      height: 140px;
+      margin-bottom: 1.2rem;
+    }
+    .bar {
+      background: var(--bar-fill);
+      border-radius: 3px 3px 0 0;
+      min-height: 4px;
+      transition: height .5s cubic-bezier(.4,0,.2,1), opacity .4s;
+      opacity: 0;
+      cursor: pointer;
+      position: relative;
+    }
+    .bar.visible { opacity: 1; }
+    .bar:hover { background: #93c5fd; }
+    .bar:hover::after {
+      content: attr(data-val);
+      position: absolute;
+      bottom: calc(100% + 4px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #334155;
+      color: #fff;
+      font-size: .7rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* Number grid */
+    #numgrid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+      gap: .5rem;
+    }
+    .num-cell {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: .4rem .6rem;
+      font-size: .78rem;
+      font-family: 'Courier New', monospace;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity .3s, transform .3s;
+    }
+    .num-cell.visible { opacity: 1; transform: translateY(0); }
+    .num-idx { color: var(--muted); font-size: .65rem; }
+    .num-val { color: var(--accent); }
+    #placeholder {
+      color: var(--muted);
+      font-size: .9rem;
+      text-align: center;
+      padding: 2rem 0;
+    }
+  </style>
+</head>
 <body>
+
+<header>
   <h1>Vertical Profiling Float</h1>
-  <p><a href="/H">LED ON</a> | <a href="/L">LED OFF</a></p>
+  <p>ESP32 web interface &mdash; AJAX control</p>
+</header>
+
+<!-- LED Control Card -->
+<div class="card">
+  <h2>LED Control</h2>
+  <div class="led-row">
+    <div class="led-indicator" id="led-dot"></div>
+    <span class="led-label" id="led-label">Unknown</span>
+    <div class="btn-group">
+      <button class="btn-on"  id="btn-on"  onclick="setLed('on')">Turn ON</button>
+      <button class="btn-off" id="btn-off" onclick="setLed('off')">Turn OFF</button>
+    </div>
+  </div>
+  <div id="toast"></div>
+</div>
+
+<!-- Sensor Data Card -->
+<div class="card">
+  <div class="data-header">
+    <h2 style="margin-bottom:0">Sensor Data</h2>
+    <span id="data-meta"></span>
+    <button class="btn-fetch" id="btn-fetch" onclick="fetchData()">&#x21BB; Fetch Data</button>
+  </div>
+  <div id="chart"></div>
+  <div id="numgrid"><div id="placeholder">Press &ldquo;Fetch Data&rdquo; to load readings.</div></div>
+</div>
+
+<script>
+  // ── LED control ────────────────────────────────────────────
+  async function setLed(state) {
+    const endpoint = state === 'on' ? '/H' : '/L';
+    const btnOn  = document.getElementById('btn-on');
+    const btnOff = document.getElementById('btn-off');
+    btnOn.disabled = btnOff.disabled = true;
+    showToast('');
+
+    try {
+      const res  = await fetch(endpoint);
+      const json = await res.json();
+      applyLedState(json.led);
+      showToast('OK \u2014 LED is ' + json.led.toUpperCase(), false);
+    } catch (e) {
+      showToast('Request failed: ' + e.message, true);
+    } finally {
+      btnOn.disabled = btnOff.disabled = false;
+    }
+  }
+
+  function applyLedState(state) {
+    const dot   = document.getElementById('led-dot');
+    const label = document.getElementById('led-label');
+    dot.className = 'led-indicator ' + state;
+    label.textContent = state.toUpperCase();
+  }
+
+  function showToast(msg, isErr) {
+    const t = document.getElementById('toast');
+    t.style.display = msg ? 'block' : 'none';
+    t.style.color = isErr ? 'var(--red)' : 'var(--green)';
+    t.textContent = msg;
+  }
+
+  // ── Data fetch ─────────────────────────────────────────────
+  async function fetchData() {
+    const btn = document.getElementById('btn-fetch');
+    btn.disabled = true;
+    btn.textContent = 'Loading\u2026';
+
+    try {
+      const res  = await fetch('/data');
+      const json = await res.json();
+      renderData(json.data);
+    } catch (e) {
+      document.getElementById('placeholder').textContent = 'Error: ' + e.message;
+      document.getElementById('placeholder').style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '\u21BB Fetch Data';
+    }
+  }
+
+  function renderData(arr) {
+    if (!arr || !arr.length) return;
+
+    const meta = document.getElementById('data-meta');
+    const min  = Math.min(...arr);
+    const max  = Math.max(...arr);
+    const avg  = (arr.reduce((a,b)=>a+b,0) / arr.length).toFixed(1);
+    meta.textContent = arr.length + ' samples \u2014 min ' + min + '  max ' + max + '  avg ' + avg;
+
+    // Bar chart
+    const chart = document.getElementById('chart');
+    chart.innerHTML = '';
+    const range = max - min || 1;
+    arr.forEach((v, i) => {
+      const bar = document.createElement('div');
+      bar.className = 'bar';
+      bar.dataset.val = v;
+      const pct = ((v - min) / range) * 100;
+      bar.style.height = Math.max(4, pct * 1.3) + 'px';
+      chart.appendChild(bar);
+      // Stagger animation
+      setTimeout(() => bar.classList.add('visible'), i * 18);
+    });
+
+    // Number grid
+    const grid = document.getElementById('numgrid');
+    const ph   = document.getElementById('placeholder');
+    if (ph) ph.remove();
+    grid.innerHTML = '';
+    arr.forEach((v, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'num-cell';
+      cell.innerHTML =
+        '<span class="num-idx">#' + String(i).padStart(2,'0') + '</span>' +
+        '<span class="num-val">' + v.toLocaleString() + '</span>';
+      grid.appendChild(cell);
+      setTimeout(() => cell.classList.add('visible'), i * 22);
+    });
+  }
+</script>
+
 </body>
 </html>
