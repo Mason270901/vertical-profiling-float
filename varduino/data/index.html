@@ -108,8 +108,10 @@
     #chart .tick text  { fill: #64748b; font-size: 10px; font-family: 'Segoe UI', system-ui, sans-serif; }
     #chart .line-path  { fill: none; stroke-width: 2px; stroke-linejoin: round; stroke-linecap: round; }
     #chart .area-path  { fill: url(#areaGradient); }
-    #chart .dot        { fill: transparent; stroke: transparent; stroke-width: 8px; cursor: crosshair; }
-    #chart .dot:hover  { fill: #fff; stroke: rgba(255,255,255,0.25); }
+    #chart .dot        { fill: #000; stroke: rgba(0,0,0,0.3); stroke-width: 1px; }
+    #chart .dot.hidden  { display: none; }
+    .btn-toggle { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+    .btn-toggle.active { color: var(--text); border-color: var(--text); }
     #d3-tooltip {
       position: fixed;
       background: #334155;
@@ -153,6 +155,7 @@
   <div class="data-header">
     <h2 style="margin-bottom:0">Sensor Data</h2>
     <span id="data-meta"></span>
+    <button class="btn-toggle" id="btn-toggle" onclick="togglePoints()" disabled>&#x25CF; Points</button>
     <button class="btn-fetch" id="btn-fetch" onclick="fetchData()">&#x21BB; Fetch Data</button>
   </div>
   <div id="chart"></div>
@@ -193,6 +196,13 @@
     t.textContent = msg;
   }
 
+  function togglePoints() {
+    const btn  = document.getElementById('btn-toggle');
+    const dots = document.querySelectorAll('#chart .dot');
+    const show = btn.classList.toggle('active');
+    dots.forEach(d => d.classList.toggle('hidden', !show));
+  }
+
   // ── Data fetch ─────────────────────────────────────────────
   async function fetchData() {
     const btn = document.getElementById('btn-fetch');
@@ -203,6 +213,9 @@
       const res  = await fetch('/data');
       const json = await res.json();
       renderData(json.data);
+      const tb = document.getElementById('btn-toggle');
+      tb.disabled = false;
+      tb.classList.remove('active');
     } catch (e) {
       document.getElementById('data-meta').textContent = 'Error: ' + e.message;
     } finally {
@@ -344,7 +357,7 @@
     svg.selectAll('.dot')
       .data(arr)
       .join('circle')
-        .attr('class', 'dot')
+        .attr('class', 'dot hidden')
         .attr('cx', (_, i) => xScale(i))
         .attr('cy', d => yScale(d))
         .attr('r', 3)
