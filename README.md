@@ -16,6 +16,7 @@ Below, I started with a RPI 2, and 2025-12-04-raspios-trixie-armhf.img
 # Board
 
 * Board: https://heltec.org/project/wifi-lora-32-v3/
+* Example code: https://github.com/ropg/heltec_esp32_lora_v3
 
 # Arduino IDE support (NOT WORKING as of now)
 * https://docs.heltec.org/en/node/esp32/esp32_general_docs/quick_start.html#via-arduino-ide
