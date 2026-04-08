@@ -27,7 +27,9 @@ void ISR_pulse() {
   // Serial.print(last_toggle_us);
   // Serial.print(" d: ");
   // Serial.println( (now - last_toggle_us) );
+
   if (now - last_toggle_us > 2000) {  // 2ms debounce
+    // if( 1) {
     last_toggle_us = now;
     isr_up = !isr_up;
     digitalWrite(HALL_TEST, isr_up);
@@ -53,9 +55,9 @@ void setup() {
   // analogWrite(MOTOR_UP, 190);
 
   // pushes water out
-  digitalWrite(MOTOR_UP, 0);
-  digitalWrite(MOTOR_DOWN, 1);
-  delay(39000-4000);
+  // digitalWrite(MOTOR_UP, 0);
+  // digitalWrite(MOTOR_DOWN, 1);
+  // delay(39000-4000);
 
   // // takes water in
   // digitalWrite(MOTOR_UP, 1);
@@ -76,6 +78,28 @@ void loop() {
   // takes water in
   digitalWrite(MOTOR_UP, 1);
   digitalWrite(MOTOR_DOWN, 0);
+
+  for(int i = 0; i < 39; i++) {
+
+    // delay(39000);
+    
+    // turn off interrupts
+    // copy out the value
+    // turn them back on
+    noInterrupts();
+    count = isr_pulse_counts;
+    interrupts();
+
+    Serial.print("i: ");
+    Serial.print(i);
+    Serial.print(" counts: ");
+    Serial.println(count);
+
+    delay(1000);
+  }
+
+  digitalWrite(MOTOR_UP, 0);
+  digitalWrite(MOTOR_DOWN, 1);
 
   for(int i = 0; i < 39; i++) {
 
