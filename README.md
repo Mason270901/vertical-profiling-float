@@ -86,3 +86,7 @@ arduino-cli board listall heltec
 # WWW
 * https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js
 * https://github.com/MickTheMechanic/FLIR-style-thermal-color-palettes/blob/main/IRONBOW.c
+
+
+# Hall effect
+The linear actuator has hall effect feedback. This is annoying because we need to setup an ISR. During testing, I looked at the waves on the scope, and it was pretty noisy. At one point the waveform changed (it's possible I damaged the hall effect). After that however, I reduced the pullup to 47k with 100nF in parallel. With this setup I proved the esp32 could capture edges correctly.
