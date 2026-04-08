@@ -1,0 +1,65 @@
+#define MOTOR_UP 48
+#define MOTOR_DOWN 47
+// motor driver board is labeled
+// in 1, in 2, in 3, in 4
+// nc  , nc  , blue, orange
+
+
+
+#define MOTOR_FEEDBACK 4
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(MOTOR_UP, OUTPUT);  // sets the pin as output
+  pinMode(MOTOR_DOWN, OUTPUT);  // sets the pin as output
+  pinMode(MOTOR_FEEDBACK, INPUT);  // sets the pin as output
+
+  // analogWrite(MOTOR_UP, 190);
+
+  // pushes water out
+  digitalWrite(MOTOR_UP, 0);
+  digitalWrite(MOTOR_DOWN, 1);
+  delay(39000);
+
+  // takes water in
+  digitalWrite(MOTOR_UP, 1);
+  digitalWrite(MOTOR_DOWN, 0);
+  delay(39000);
+
+  digitalWrite(MOTOR_UP, 0);
+  digitalWrite(MOTOR_DOWN, 0);
+}
+
+#define RUN
+
+void loop() {
+  for (int i = 0; i <= 13; i++) {
+    Serial.print("i: ");
+    Serial.println(i);
+    delay(400);
+  #ifdef RUN
+    if (i >= 2 && i <= 3) {
+      // takes water in
+      digitalWrite(MOTOR_UP, 1);
+      digitalWrite(MOTOR_DOWN, 0);
+      // delay(200);
+    } else if (i >= 7 && i <= 8) {
+      // pushes water out
+      digitalWrite(MOTOR_UP, 0);
+      digitalWrite(MOTOR_DOWN, 1);
+      delay(600);
+    } else {
+      digitalWrite(MOTOR_UP, 0);
+      digitalWrite(MOTOR_DOWN, 0);
+    }
+#else
+    digitalWrite(MOTOR_UP, 0);
+    digitalWrite(MOTOR_DOWN, 0);
+#endif
+    delay(200);
+    Serial.print("   ");
+    Serial.println(analogRead(MOTOR_FEEDBACK));
+  }
+
+
+}

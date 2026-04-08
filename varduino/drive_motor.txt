@@ -1,0 +1,11 @@
+#define MOTOR_UP 48
+
+void setup() {
+
+  pinMode(MOTOR_UP, OUTPUT);  // sets the pin as output
+  
+  analogWrite(MOTOR_UP, 190);
+}
+
+void loop() {
+}

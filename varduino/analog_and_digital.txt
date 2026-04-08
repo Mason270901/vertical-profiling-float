@@ -1,0 +1,16 @@
+#define MOTOR_UP 48
+
+#define MOTOR_FEEDBACK 37
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(MOTOR_UP, OUTPUT);  // sets the pin as output
+  pinMode(MOTOR_FEEDBACK, INPUT);  // sets the pin as output
+
+  // analogWrite(MOTOR_UP, 190);
+}
+
+void loop() {
+  Serial.println(digitalRead(MOTOR_FEEDBACK));
+  delay(200);
+}

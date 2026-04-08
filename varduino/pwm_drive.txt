@@ -1,0 +1,43 @@
+#define MOTOR_UP 48
+#define MOTOR_DOWN 47
+
+#define MOTOR_FEEDBACK 4
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(MOTOR_UP, OUTPUT);  // sets the pin as output
+  pinMode(MOTOR_DOWN, OUTPUT);  // sets the pin as output
+  pinMode(MOTOR_FEEDBACK, INPUT);  // sets the pin as output
+
+  // analogWrite(MOTOR_UP, 190);
+}
+
+// #define RUN
+
+void loop() {
+  for (int i = 0; i <= 9; i++) {
+    Serial.print("i: ");
+    Serial.println(i);
+    delay(500);
+  #ifdef RUN
+    if (i >= 2 && i <= 3) {
+      analogWrite(MOTOR_UP, 190);
+      analogWrite(MOTOR_DOWN, 0);
+    } else if (i >= 5 && i <= 6) {
+      analogWrite(MOTOR_UP, 0);
+      analogWrite(MOTOR_DOWN, 190);
+      delay(200);
+    } else {
+      analogWrite(MOTOR_UP, 0);
+      analogWrite(MOTOR_DOWN, 0);
+    }
+#else
+    analogWrite(MOTOR_UP, 0);
+    analogWrite(MOTOR_DOWN, 0);
+#endif
+    Serial.print("   ");
+    Serial.println(analogRead(MOTOR_FEEDBACK));
+  }
+
+
+}
