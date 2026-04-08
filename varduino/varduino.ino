@@ -1,198 +1,108 @@
-/*
-  Vertical Profiling Float — web server with AJAX endpoints.
-  Files are served from a LittleFS image flashed to the spiffs partition.
+#define MOTOR_UP 48
+#define MOTOR_DOWN 47
+// motor driver board is labeled
+// in 1, in 2, in 3, in 4
+// nc  , nc  , blue, orange
 
-  Steps:
-  1. Put files in varduino/data/
-  2. Run: make fs-flash   (builds and flashes the LittleFS image)
-  3. Run: make && make program  (compile and flash the sketch)
-  4. Connect to the access point "yourAP"
-  5. Browse to http://192.168.4.1/
+#define MOTOR_FEEDBACK 4
+#define HALL_TEST 3
 
-  AJAX endpoints (return JSON, no redirect):
-    GET /H     — turn LED on  → {"led":"on"}
-    GET /L     — turn LED off → {"led":"off"}
-    GET /data  — 44-element uint32 array → {"data":[...]}
-*/
 
-#include <WiFi.h>
-#include <WiFiAP.h>
-#include <LittleFS.h>
 
-#ifndef LED_BUILTIN
-#define LED_BUILTIN 2
-#endif
+// only read while interrupts are disabled
+volatile long isr_pulse_counts = 0;
+volatile bool isr_up = false;
 
-const char *ssid     = "yourAP";
-const char *password = "yourPassword";
+volatile unsigned long last_toggle_us = 0;
 
-WiFiServer server(80);
+// don't print or do any delays in this isr
+void ISR_pulse() {
+  isr_pulse_counts++;
 
-// ---------------------------------------------------------------------------
-// Pre-populated 44-element array of 32-bit sensor readings
-// Simulated depth/pressure profile (values in millibars × 10)
-// ---------------------------------------------------------------------------
-#define DATA_LEN 44
-uint32_t sensorData[DATA_LEN];
-
-// Return a MIME type string based on file extension
-String mimeType(const String &path) {
-  if (path.endsWith(".html") || path.endsWith(".htm")) return "text/html";
-  if (path.endsWith(".css"))  return "text/css";
-  if (path.endsWith(".js"))   return "application/javascript";
-  if (path.endsWith(".json")) return "application/json";
-  if (path.endsWith(".png"))  return "image/png";
-  if (path.endsWith(".jpg") || path.endsWith(".jpeg")) return "image/jpeg";
-  if (path.endsWith(".ico"))  return "image/x-icon";
-  if (path.endsWith(".svg"))  return "image/svg+xml";
-  if (path.endsWith(".txt"))  return "text/plain";
-  return "application/octet-stream";
-}
-
-// Send a file from LittleFS to the client, returns true on success
-bool serveFile(WiFiClient &client, const String &path) {
-  String filePath = (path == "/") ? "/index.html" : path;
-  if (!LittleFS.exists(filePath)) {
-    return false;
+  
+  unsigned long now = micros();
+  // Serial.print("now: ");
+  // Serial.print(now);
+  // Serial.print(" lst: ");
+  // Serial.print(last_toggle_us);
+  // Serial.print(" d: ");
+  // Serial.println( (now - last_toggle_us) );
+  if (now - last_toggle_us > 2000) {  // 2ms debounce
+    last_toggle_us = now;
+    isr_up = !isr_up;
+    digitalWrite(HALL_TEST, isr_up);
   }
-  File file = LittleFS.open(filePath, "r");
-  if (!file) {
-    return false;
-  }
-  client.println("HTTP/1.1 200 OK");
-  client.print("Content-Type: ");
-  client.println(mimeType(filePath));
-  client.print("Content-Length: ");
-  client.println(file.size());
-  client.println("Connection: close");
-  client.println();
-  // Stream file in chunks
-  uint8_t buf[512];
-  while (file.available()) {
-    int len = file.read(buf, sizeof(buf));
-    client.write(buf, len);
-  }
-  file.close();
-  return true;
 }
 
-// Send a JSON response with CORS headers
-void sendJson(WiFiClient &client, int code, const String &body) {
-  String status = (code == 200) ? "200 OK" : "404 Not Found";
-  client.println("HTTP/1.1 " + status);
-  client.println("Content-Type: application/json");
-  client.println("Access-Control-Allow-Origin: *");
-  client.print("Content-Length: ");
-  client.println(body.length());
-  client.println("Connection: close");
-  client.println();
-  client.print(body);
-}
-
-void send404(WiFiClient &client) {
-  client.println("HTTP/1.1 404 Not Found");
-  client.println("Content-Type: text/plain");
-  client.println("Connection: close");
-  client.println();
-  client.println("404 Not Found");
-}
 
 void setup() {
-  pinMode(LED_BUILTIN, OUTPUT);
   Serial.begin(115200);
-  Serial.println();
+  // setup motor
+  pinMode(MOTOR_UP, OUTPUT);
+  pinMode(MOTOR_DOWN, OUTPUT);
 
-  // Pre-populate sensor data array with a simulated depth/pressure profile
-  for (int i = 0; i < DATA_LEN; i++) {
-    // Simulate a dive-and-resurface profile: ramp down then back up
-    // Values represent pressure in millibars × 10 (i.e. 10130 = 1013.0 mbar)
-    uint32_t depth = (i < DATA_LEN / 2)
-      ? (10130 + (uint32_t)i * 480)          // descending
-      : (10130 + (uint32_t)(DATA_LEN - 1 - i) * 480); // ascending
-    sensorData[i] = depth;
-  }
+  // test output to see how hall effect is working
+  pinMode(HALL_TEST, OUTPUT);
 
-  if (!LittleFS.begin()) {
-    Serial.println("LittleFS mount failed — did you run `make program-data` ?");
-    while (1);
-  }
-  Serial.println("LittleFS mounted.");
+  // setup feedback
+  pinMode(MOTOR_FEEDBACK, INPUT);
 
-  Serial.println("Configuring access point...");
-  if (!WiFi.softAP(ssid, password)) {
-    log_e("Soft AP creation failed.");
-    while (1);
-  }
-  Serial.print("AP IP address: ");
-  Serial.println(WiFi.softAPIP());
-  server.begin();
-  Serial.println("Server started");
+  attachInterrupt(digitalPinToInterrupt(MOTOR_FEEDBACK), ISR_pulse, RISING);
+
+
+  // analogWrite(MOTOR_UP, 190);
+
+  // pushes water out
+  digitalWrite(MOTOR_UP, 0);
+  digitalWrite(MOTOR_DOWN, 1);
+  delay(39000-4000);
+
+  // // takes water in
+  // digitalWrite(MOTOR_UP, 1);
+  // digitalWrite(MOTOR_DOWN, 0);
+  // delay(39000);
+
+  digitalWrite(MOTOR_UP, 0);
+  digitalWrite(MOTOR_DOWN, 0);
 }
 
+#define RUN
+
 void loop() {
-  WiFiClient client = server.available();
-  if (!client) return;
 
-  Serial.println("New Client.");
-  String requestLine = "";
-  String currentLine = "";
-  bool firstLine = true;
+  long count;
 
-  while (client.connected()) {
-    if (!client.available()) continue;
+  #ifdef RUN
+  // takes water in
+  digitalWrite(MOTOR_UP, 1);
+  digitalWrite(MOTOR_DOWN, 0);
 
-    char c = client.read();
-    if (c == '\n') {
-      if (firstLine) {
-        requestLine = currentLine;  // e.g. "GET /index.html HTTP/1.1"
-        firstLine = false;
-      }
-      if (currentLine.length() == 0) {
-        // Blank line = end of request headers, time to respond
+  for(int i = 0; i < 39; i++) {
 
-        // Parse path from request line: "GET /path HTTP/1.1"
-        String path = "/";
-        int pathStart = requestLine.indexOf(' ');
-        int pathEnd   = requestLine.indexOf(' ', pathStart + 1);
-        if (pathStart >= 0 && pathEnd > pathStart) {
-          path = requestLine.substring(pathStart + 1, pathEnd);
-        }
-        Serial.print("Request: ");
-        Serial.println(path);
+    // delay(39000);
+    
+    // turn off interrupts
+    // copy out the value
+    // turn them back on
+    noInterrupts();
+    count = isr_pulse_counts;
+    interrupts();
 
-        // AJAX endpoint: LED on
-        if (path == "/H") {
-          digitalWrite(LED_BUILTIN, HIGH);
-          sendJson(client, 200, "{\"led\":\"on\"}");
+    Serial.print("i: ");
+    Serial.print(i);
+    Serial.print(" counts: ");
+    Serial.println(count);
 
-        // AJAX endpoint: LED off
-        } else if (path == "/L") {
-          digitalWrite(LED_BUILTIN, LOW);
-          sendJson(client, 200, "{\"led\":\"off\"}");
-
-        // AJAX endpoint: return the 44-element data array as JSON
-        } else if (path == "/data") {
-          String json = "{\"data\":[";
-          for (int i = 0; i < DATA_LEN; i++) {
-            json += String(sensorData[i]);
-            if (i < DATA_LEN - 1) json += ",";
-          }
-          json += "]}";
-          sendJson(client, 200, json);
-
-        } else {
-          if (!serveFile(client, path)) {
-            send404(client);
-          }
-        }
-        break;
-      }
-      currentLine = "";
-    } else if (c != '\r') {
-      currentLine += c;
-    }
+    delay(1000);
   }
 
-  client.stop();
-  Serial.println("Client Disconnected.");
+
+#else
+    digitalWrite(MOTOR_UP, 0);
+    digitalWrite(MOTOR_DOWN, 0);
+#endif
+
+
+
+
 }
