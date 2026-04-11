@@ -88,6 +88,9 @@ arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 WiFiAccessPoint
 arduino-cli board listall heltec
 ```
 
+# Pressure Sensor
+External 4.7k pullups on both SDA SCL to 5V
+
 
 # WWW
 * https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js

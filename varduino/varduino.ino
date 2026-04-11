@@ -8,17 +8,23 @@
 // Change the model below if you have a Bar02.
 #define SENSOR_MODEL MS5837::MS5837_30BA
 
-#define CLOCK 34
-#define DATA  33
+// Pressure Sensor
+// Red   - Vin   (5V)
+// Green - SCL   (Clock)
+// White - SDA   (Data)
+// Black - GND
+
+#define CLOCK 33
+#define DATA  34
 
 MS5837 sensor;
 
 void setup() {
   Serial.begin(115200);
   Wire.begin(DATA, CLOCK);
-  Wire.setClock(1000);  // 100 kHz (standard mode; default is 400 kHz)
+  Wire.setClock(10000);
 
-  sensor.setModel(SENSOR_MODEL);
+  // sensor.setModel(SENSOR_MODEL);
 
   while (!sensor.init()) {
     Serial.println("MS5837 init failed — check wiring");
@@ -26,7 +32,8 @@ void setup() {
   }
 
   // Freshwater density: 997 kg/m³  Saltwater: 1029 kg/m³
-  sensor.setFluidDensity(1029);
+  sensor.setFluidDensity(997);
+  // sensor.setFluidDensity(1029);
 
   Serial.println("MS5837 ready");
 }
