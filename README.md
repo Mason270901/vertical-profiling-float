@@ -68,7 +68,13 @@ arduino-cli core install esp32:esp32@2.0.17
 
 ## 4. Libraries
 
-`WiFi.h` is bundled with the `esp32:esp32` core — no additional libraries need to be installed.
+`WiFi.h` is bundled with the `esp32:esp32` core.
+
+Install the Blue Robotics MS5837 pressure sensor library:
+
+```bash
+arduino-cli lib install "BlueRobotics MS5837 Library"
+```
 
 ## 5. Compile
 

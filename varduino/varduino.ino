@@ -1,189 +1,48 @@
-#define MOTOR_UP 48
-#define MOTOR_DOWN 47
-// motor driver board is labeled
-// in 1, in 2, in 3, in 4
-// nc  , nc  , blue, orange
 
-void waterOut() {
-  // pushes water out
-  digitalWrite(MOTOR_UP, 0);
-  digitalWrite(MOTOR_DOWN, 1);
-}
 
-void waterIn() {
-  // sucks water in
-  digitalWrite(MOTOR_UP, 1);
-  digitalWrite(MOTOR_DOWN, 0);
-}
+#include <Wire.h>
+#include "MS5837.h"
 
-void waterStop() {
-  digitalWrite(MOTOR_UP, 0);
-  digitalWrite(MOTOR_DOWN, 0);
-}
+// Bar30: MS5837_30BA (up to 300 m depth)
+// Bar02: MS5837_02BA (up to 10 m depth)
+// Change the model below if you have a Bar02.
+#define SENSOR_MODEL MS5837::MS5837_30BA
 
-// used VCC of 10.5 bench supply
+#define CLOCK 34
+#define DATA  33
 
-// microseconds per cc
-// long factor = 127400; 
-// long factor = 133770; // past 200
-// long factor = 121030; // short of 50 short of 200
-long factor = 129948; // tiny bit past 200, dead on 50 first time, tiny bit below 50 on the return
-
-// Accumulated microseconds: positive = water in, negative = water out.
-// Only updated at motor transitions; never includes the in-progress segment.
-long delta_water = 0;
-
-// Current motor direction: +1 = waterIn, -1 = waterOut, 0 = stopped
-int motor_state = 0;
-
-// micros() timestamp when the current motion segment began
-unsigned long motion_start_us = 0;
-
-// Target volume in cc
-int setpoint_cc = 0;
-
-// -----------------------------------------------------------------------
-// Commit the in-progress motion segment into delta_water, then apply
-// the new motor state. micros() is called immediately before the motor
-// call so the elapsed tally is as tight as possible.
-// -----------------------------------------------------------------------
-void motorTransition(int new_state) {
-  unsigned long now = micros();
-
-  // Commit elapsed time from the current segment before changing state
-  if (motor_state != 0) {
-    long elapsed = (long)(now - motion_start_us);
-    delta_water += elapsed * (long)motor_state;
-  }
-
-  // Drive motor — happens right after micros() call above
-  if      (new_state ==  1) waterIn();
-  else if (new_state == -1) waterOut();
-  else                      waterStop();
-
-  motor_state = new_state;
-  if (new_state != 0) {
-    motion_start_us = now; // start timing the new segment
-  }
-}
-
-// -----------------------------------------------------------------------
-// Syringe API
-// -----------------------------------------------------------------------
-
-// Returns instantaneous cc estimate, including any in-progress segment.
-int syringeCC() {
-  long current = delta_water;
-  if (motor_state != 0) {
-    unsigned long now = micros();
-    long elapsed = (long)(now - motion_start_us);
-    current += elapsed * (long)motor_state;
-  }
-  return (int)(current / factor);
-}
-
-// Set a new target volume in cc. syringeLoop() drives toward this value.
-// Safe to call at any time regardless of current motor state or direction.
-void syringeSetpoint(int cc) {
-  setpoint_cc = cc;
-}
-
-// Returns motor state: +1 moving waterIn, -1 moving waterOut, 0 stopped.
-int syringeState() {
-  return motor_state;
-}
-
-// Prints current status to Serial.
-void syringeStatus() {
-  int cc = syringeCC();
-  const char *state_str;
-  if      (motor_state ==  1) state_str = "running-in";
-  else if (motor_state == -1) state_str = "running-out";
-  else                        state_str = "stopped";
-  char buf[80];
-  snprintf(buf, sizeof(buf), "cc:%d setpoint:%d state:%s", cc, setpoint_cc, state_str);
-  Serial.println(buf);
-}
-
-// Call repeatedly from loop(). Drives motor toward setpoint_cc.
-void syringeLoop() {
-  int current = syringeCC();
-  int error   = setpoint_cc - current;
-
-  int desired;
-  if      (error > 0) desired =  1;
-  else if (error < 0) desired = -1;
-  else                desired =  0;
-
-  if (desired != motor_state) {
-    motorTransition(desired);
-  }
-}
-
-// -----------------------------------------------------------------------
+MS5837 sensor;
 
 void setup() {
   Serial.begin(115200);
+  Wire.begin(DATA, CLOCK);
+  Wire.setClock(1000);  // 100 kHz (standard mode; default is 400 kHz)
 
-  pinMode(MOTOR_UP, OUTPUT);
-  pinMode(MOTOR_DOWN, OUTPUT);
+  sensor.setModel(SENSOR_MODEL);
 
-  // Empty the syringe at startup so position is known
-  waterOut();
-  delay(39000 - 3000);
-  waterStop();
+  while (!sensor.init()) {
+    Serial.println("MS5837 init failed — check wiring");
+    delay(1000);
+  }
 
-  // Syringe is empty; zero out all tracking state
-  delta_water  = 0;
-  motor_state  = 0;
-  setpoint_cc  = 0;
+  // Freshwater density: 997 kg/m³  Saltwater: 1029 kg/m³
+  sensor.setFluidDensity(1029);
+
+  Serial.println("MS5837 ready");
 }
 
 void loop() {
-  char buf[80];
-  syringeLoop();
+  sensor.read();
 
-  for(int i = 0; i < 1000; i++) {
+  char buf[120];
+  snprintf(buf, sizeof(buf),
+    "pressure=%.2f mbar  temp=%.2f C  depth=%.4f m  altitude=%.2f m",
+    sensor.pressure(),
+    sensor.temperature(),
+    sensor.depth(),
+    sensor.altitude());
 
-    syringeLoop();
+  Serial.println(buf);
 
-    if (i == 2) {
-      syringeSetpoint(50);
-      snprintf(buf, sizeof(buf), "asking for 50");
-      Serial.println(buf);
-    } else if (i == 200) {
-      syringeSetpoint(200);
-      snprintf(buf, sizeof(buf), "asking for 200");
-      Serial.println(buf);
-    } else if (i == 600) {
-      syringeSetpoint(50);
-      snprintf(buf, sizeof(buf), "asking for 50");
-      Serial.println(buf);
-    } else {
-      // digitalWrite(MOTOR_UP, 0);
-      // digitalWrite(MOTOR_DOWN, 0);
-    }
-
-    
-
-    syringeLoop();
-
-    delay(100);
-
-    syringeLoop();
-
-  // Print status once per second
-    static unsigned long last_print_ms = 0;
-    unsigned long now_ms = millis();
-    if (now_ms - last_print_ms >= 400) {
-      last_print_ms = now_ms;
-      syringeStatus();
-
-      snprintf(buf, sizeof(buf), "i: %d", i);
-      Serial.println(buf);
-    }
-
-  }
-
- 
+  delay(500);
 }
