@@ -14,6 +14,8 @@ FS_SIZE    := 1572864
 FS_DATA    := varduino/data
 FS_IMAGE   := varduino/littlefs.bin
 
+.PHONY: all compile docker-build push program program-build build-fs clean clean-cache viz cleanviz
+
 all: compile
 
 # Build the x86 Docker image that contains arduino-cli + all required cores/libraries
@@ -59,3 +61,9 @@ clean-cache:
 program-data: build-fs
 	$(ESPTOOL) --chip esp32s3 --port $(FS_PORT) --baud 921600 \
 		write_flash $(FS_OFFSET) $(FS_IMAGE)
+
+viz:
+	wireviz wireviz/vert.yml
+
+cleanviz:
+	rm -rf wireviz/vert.bom.tsv wireviz/vert.html wireviz/vert.png wireviz/vert.svg
