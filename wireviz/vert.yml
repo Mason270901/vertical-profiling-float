@@ -25,6 +25,10 @@ connectors:
     pinlabels: [GND, 3V3, USBN, USBP, P4, P33, P34, P47, P48]
 
 cables:
+  BRAID1:
+    wirecount: 2
+    colors: [BK, RD]
+    type: Braid Wrapped
   BRAID2:
     wirecount: 2
     colors: [BK, RD]
@@ -59,6 +63,14 @@ connections:
     - WAGO2: [2]
     - BRAID2: [2]
     - DCDC: [2]
+  -
+    - WAGO3: [3]
+    - BRAID1: [1]
+    - BATTERY: [1]
+  -
+    - WAGO1: [2]
+    - BRAID1: [2]
+    - BATTERY: [2]
   -
     - DCDC:              [1, 2, 4]
     - SUPPLYMOTORDRIVER: [1, 2, 3]
