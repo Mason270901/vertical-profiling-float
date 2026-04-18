@@ -2,27 +2,40 @@ connectors:
   PWR:
     type: Power Button
     pinlabels: [WHITE, BLACK, GREEN, YELLOW, RED]
+  WAGO1:
+    type: Wago No 1
+    pinlabels: [ONE, TWO]
   WAGO2:
     type: Wago No 2
     pinlabels: [ONE, TWO]
   WAGO3:
     type: Wago No 3
     pinlabels: [ONE, TWO, THREE]
+  BATTERY:
+    type: Battery Holder
+    pinlabels: [GND, 12V]
   DCDC:
     type: DC to DC converter
     pinlabels: [GNDIN, 12VIN, GNDOUT, 5VOUT]
   MOTORDRIVER:
     type: Motor Driver
-    pinlabels: [12V, GND, 5V, OUT1, OUT2, OUT3, OUT4]
+    pinlabels: [12V, GND, 5V, IN1, IN2, IN3, IN4, OUT1, OUT2, OUT3, OUT4]
+  ESP32:
+    type: Heltec WiFi LoRa 32
+    pinlabels: [GND, 3V3, USBN, USBP, P4, P33, P34, P47, P48]
 
 cables:
-  BRAID3:
+  BRAID2:
     wirecount: 2
     colors: [BK, RD]
     type: Braid Wrapped
   SUPPLYMOTORDRIVER:
+    wirecount: 3
+    colors: [BK, RD, GN]
+    type: Jumper Wire
+  SIGNALMOTORDRIVER:
     wirecount: 2
-    colors: [BK, RD]
+    colors: [BU, OG]
     type: Jumper Wire
 
 connections:
@@ -34,15 +47,23 @@ connections:
     - PWR: [5]
     - -->
     - WAGO3: [1]
+  - 
+    - PWR: [4]
+    - -->
+    - WAGO1: [1]
   -
     - WAGO3: [2]
-    - BRAID3: [1]
+    - BRAID2: [1]
     - DCDC: [1]
   -
     - WAGO2: [2]
-    - BRAID3: [2]
+    - BRAID2: [2]
     - DCDC: [2]
   -
-    - DCDC: [1,2]
-    - SUPPLYMOTORDRIVER: [1,2]
-    - MOTORDRIVER: [1,2]
+    - DCDC:              [1, 2, 4]
+    - SUPPLYMOTORDRIVER: [1, 2, 3]
+    - MOTORDRIVER:       [1, 2, 3]
+  -
+    - ESP32: [8, 9]
+    - SIGNALMOTORDRIVER: [1, 2]
+    - MOTORDRIVER:       [6, 7]
