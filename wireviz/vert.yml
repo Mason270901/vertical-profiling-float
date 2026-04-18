@@ -1,12 +1,4 @@
 connectors:
-  X1:
-    type: D-Sub
-    subtype: female
-    pinlabels: [DCD, RX, TX, DTR, GND, DSR, RTS, CTS, RI]
-  X2:
-    type: Molex KK 254
-    subtype: female
-    pinlabels: [GND, RX, TX]
   PWR:
     type: Power Button
     pinlabels: [WHITE, BLACK, GREEN, YELLOW, RED]
@@ -19,33 +11,28 @@ connectors:
   DCDC:
     type: DC to DC converter
     pinlabels: [GNDIN, 12VIN, GNDOUT, 5VOUT]
+  MOTORDRIVER:
+    type: Motor Driver
+    pinlabels: [12V, GND, 5V, OUT1, OUT2, OUT3, OUT4]
 
 cables:
-  W1:
-    gauge: 0.25 mm2
-    length: 0.2
-    color_code: DIN
-    wirecount: 3
-    shield: true
   BRAID3:
     wirecount: 2
     colors: [BK, RD]
+    type: Braid Wrapped
+  SUPPLYMOTORDRIVER:
+    wirecount: 2
+    colors: [BK, RD]
+    type: Jumper Wire
 
 connections:
   -
-    - X1: [5,2,3]
-    - W1: [1,2,3]
-    - X2: [1,3,2]
-  -
-    - X1: 5
-    - W1: s
-  -
     - PWR: [1, 2]
-    - <-->
+    - -->
     - WAGO2: [1, 1]
   - 
     - PWR: [5]
-    - <-->
+    - -->
     - WAGO3: [1]
   -
     - WAGO3: [2]
@@ -55,3 +42,7 @@ connections:
     - WAGO2: [2]
     - BRAID3: [2]
     - DCDC: [2]
+  -
+    - DCDC: [1,2]
+    - SUPPLYMOTORDRIVER: [1,2]
+    - MOTORDRIVER: [1,2]
