@@ -23,8 +23,8 @@
 #define LED_BUILTIN 2
 #endif
 
-const char *ssid     = "yourAP";
-const char *password = "yourPassword";
+const char *ssid     = "RN02verticalprofile";
+const char *password = "password1!";
 
 WiFiServer server(80);
 
