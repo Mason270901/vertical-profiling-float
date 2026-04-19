@@ -2,6 +2,7 @@ connectors:
   PWR:
     type: Power Button
     pinlabels: [WHITE, BLACK, GREEN, YELLOW, RED]
+    pincolors: [WH, BK, GN, YE, RD]
   WAGO1:
     type: Wago No 1
     pinlabels: [ONE, TWO]
@@ -26,6 +27,11 @@ connectors:
   LINEAR:
     type: Linear Actuator
     pinlabels: [MOTORN, MOTORP, VCC, GND, OUTPUT]
+    pincolors: [BK, RD, WH, GN, YE]
+  MS5837:
+    type: MS5837 Pressure Sensor
+    pinlabels: [VIN, SCL, SDA, GND]
+    pincolors: [RD, GN, WH, BK]
 
 
 # BK ##000000 (black)
@@ -70,6 +76,14 @@ cables:
   LINEARCABLE:
     wirecount: 5
     colors: [BK, RD, WH, GN, YE]
+  MS5837CABLE:
+    wirecount: 4
+    colors: [RD, GN, WH, BK]
+    type: Jumper Wire
+  USBPOWER:
+    wirecount: 2
+    colors: [BK, RD]
+    type: USB C
 
 connections:
   -
@@ -116,3 +130,23 @@ connections:
     - ESP32: [5, 2, 1]
     - LINEARCABLE: [5, 3, 4]
     - LINEAR: [5, 3, 4]
+  -
+    - DCDC: [4]
+    - MS5837CABLE: [1]
+    - MS5837: [1]
+  -
+    - ESP32: [6, 7, 1]
+    - MS5837CABLE: [2, 3, 4]
+    - MS5837: [2, 3, 4]
+  -
+    - DCDC: [1, 2]
+    - USBPOWER: [1, 2]
+    - ESP32: [3, 4]
+
+tweak:
+  append:
+    - "{rank=same; DCDC; USBPOWER}"
+    # - "{rank=same; ESP32; MS5837CABLE}"
+
+# tweak:
+#   append: "SIGNALMOTORDRIVER -- MS5837CABLE [style=invis weight=10]"
