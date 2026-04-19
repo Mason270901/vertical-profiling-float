@@ -73,7 +73,7 @@ cables:
 
 connections:
   -
-    - PWR: [1, 2]
+    - PWR:   [1, 2]
     - -->
     - WAGO2: [1, 1]
   - 
@@ -105,6 +105,14 @@ connections:
     - SUPPLYMOTORDRIVER: [1, 2, 3]
     - MOTORDRIVER:       [1, 2, 3]
   -
-    - ESP32: [8, 9]
+    - ESP32:             [8, 9]
     - SIGNALMOTORDRIVER: [1, 2]
     - MOTORDRIVER:       [6, 7]
+  -
+    - MOTORDRIVER: [10, 11]
+    - LINEARCABLE: [1, 2]
+    - LINEAR: [1, 2]
+  -
+    - ESP32: [5, 2, 1]
+    - LINEARCABLE: [5, 3, 4]
+    - LINEAR: [5, 3, 4]
