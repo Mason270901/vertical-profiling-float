@@ -48,6 +48,8 @@ WiFiServer server(80);
 #define DATA_LEN 44
 uint32_t sensorData[DATA_LEN];
 
+typedef void (*Runnable)(unsigned long);
+
 // Return a MIME type string based on file extension
 String mimeType(const String &path) {
   if (path.endsWith(".html") || path.endsWith(".htm")) return "text/html";
@@ -167,70 +169,125 @@ void setup() {
   syringeReset();
 }
 
-void loop() {
-  WiFiClient client = server.available();
-  if (!client) return;
+// ---------------------------------------------------------------------------
+// wifi_loop — non-blocking Runnable that handles one HTTP request at a time.
+// ---------------------------------------------------------------------------
+#define WIFI_STATE_IDLE    0
+#define WIFI_STATE_READING 1
 
-  Serial.println("New Client.");
-  String requestLine = "";
-  String currentLine = "";
-  bool firstLine = true;
+static int        wifiState       = WIFI_STATE_IDLE;
+static WiFiClient wifiClient;
+static String     wifiRequestLine;
+static String     wifiCurrentLine;
+static bool       wifiFirstLine;
 
-  while (client.connected()) {
-    if (!client.available()) continue;
+void wifi_loop(unsigned long now) {
+  switch (wifiState) {
 
-    char c = client.read();
-    if (c == '\n') {
-      if (firstLine) {
-        requestLine = currentLine;  // e.g. "GET /index.html HTTP/1.1"
-        firstLine = false;
-      }
-      if (currentLine.length() == 0) {
-        // Blank line = end of request headers, time to respond
-
-        // Parse path from request line: "GET /path HTTP/1.1"
-        String path = "/";
-        int pathStart = requestLine.indexOf(' ');
-        int pathEnd   = requestLine.indexOf(' ', pathStart + 1);
-        if (pathStart >= 0 && pathEnd > pathStart) {
-          path = requestLine.substring(pathStart + 1, pathEnd);
-        }
-        Serial.print("Request: ");
-        Serial.println(path);
-
-        // AJAX endpoint: LED on
-        if (path == "/H") {
-          digitalWrite(LED_BUILTIN, HIGH);
-          sendJson(client, 200, "{\"led\":\"on\"}");
-
-        // AJAX endpoint: LED off
-        } else if (path == "/L") {
-          digitalWrite(LED_BUILTIN, LOW);
-          sendJson(client, 200, "{\"led\":\"off\"}");
-
-        // AJAX endpoint: return the 44-element data array as JSON
-        } else if (path == "/data") {
-          String json = "{\"data\":[";
-          for (int i = 0; i < DATA_LEN; i++) {
-            json += String(sensorData[i]);
-            if (i < DATA_LEN - 1) json += ",";
-          }
-          json += "]}";
-          sendJson(client, 200, json);
-
-        } else {
-          if (!serveFile(client, path)) {
-            send404(client);
-          }
-        }
-        break;
-      }
-      currentLine = "";
-    } else if (c != '\r') {
-      currentLine += c;
-    }
+  case WIFI_STATE_IDLE: {
+    WiFiClient c = server.available();
+    if (!c) return;
+    wifiClient      = c;
+    wifiRequestLine = "";
+    wifiCurrentLine = "";
+    wifiFirstLine   = true;
+    Serial.println("New Client.");
+    wifiState = WIFI_STATE_READING;
+    break;
   }
 
-  client.stop();
-  Serial.println("Client Disconnected.");
+  case WIFI_STATE_READING: {
+    if (!wifiClient.connected()) {
+      wifiClient.stop();
+      Serial.println("Client Disconnected.");
+      wifiState = WIFI_STATE_IDLE;
+      return;
+    }
+    // Drain only the bytes that are already available — never block.
+    while (wifiClient.available()) {
+      char c = wifiClient.read();
+      if (c == '\n') {
+        if (wifiFirstLine) {
+          wifiRequestLine = wifiCurrentLine;  // e.g. "GET /index.html HTTP/1.1"
+          wifiFirstLine   = false;
+        }
+        if (wifiCurrentLine.length() == 0) {
+          // Blank line = end of headers, dispatch response.
+
+          // Parse path from request line: "GET /path HTTP/1.1"
+          String path = "/";
+          int pathStart = wifiRequestLine.indexOf(' ');
+          int pathEnd   = wifiRequestLine.indexOf(' ', pathStart + 1);
+          if (pathStart >= 0 && pathEnd > pathStart) {
+            path = wifiRequestLine.substring(pathStart + 1, pathEnd);
+          }
+          Serial.print("Request: ");
+          Serial.println(path);
+
+          // AJAX endpoint: LED on
+          if (path == "/H") {
+            digitalWrite(LED_BUILTIN, HIGH);
+            sendJson(wifiClient, 200, "{\"led\":\"on\"}");
+
+          // AJAX endpoint: LED off
+          } else if (path == "/L") {
+            digitalWrite(LED_BUILTIN, LOW);
+            sendJson(wifiClient, 200, "{\"led\":\"off\"}");
+
+          // AJAX endpoint: return the 44-element data array as JSON
+          } else if (path == "/data") {
+            String json = "{\"data\":[";
+            for (int i = 0; i < DATA_LEN; i++) {
+              json += String(sensorData[i]);
+              if (i < DATA_LEN - 1) json += ",";
+            }
+            json += "]}";
+            sendJson(wifiClient, 200, json);
+          } else {
+            if (!serveFile(wifiClient, path)) {
+              send404(wifiClient);
+            }
+          }
+
+          wifiClient.stop();
+          Serial.println("Client Disconnected.");
+          wifiState = WIFI_STATE_IDLE;
+          return;
+        }
+        wifiCurrentLine = "";
+      } else if (c != '\r') {
+        wifiCurrentLine += c;
+      }
+    }
+    break;
+  }
+
+  }
+}
+
+// ---------------------------------------------------------------------------
+// led_blink — non-blocking Runnable that toggles the LED every 2 seconds.
+// ---------------------------------------------------------------------------
+static unsigned long ledLastToggle = 0;
+static bool          ledOn         = false;
+
+void led_blink(unsigned long now) {
+  if (now - ledLastToggle >= 2000) {
+    ledLastToggle = now;
+    ledOn = !ledOn;
+    digitalWrite(LED_BUILTIN, ledOn ? HIGH : LOW);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Runnable table + main loop
+// ---------------------------------------------------------------------------
+Runnable runnables[] = { wifi_loop, led_blink };
+#define RUNNABLE_COUNT (sizeof(runnables) / sizeof(runnables[0]))
+
+void loop() {
+  unsigned long now = millis();
+  for (size_t i = 0; i < RUNNABLE_COUNT; i++) {
+    runnables[i](now);
+  }
 }
