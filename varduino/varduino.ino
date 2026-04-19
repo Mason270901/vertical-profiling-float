@@ -19,9 +19,22 @@
 #include <WiFiAP.h>
 #include <LittleFS.h>
 
+#include "syringe.hpp"
+
+#define MOTOR_UP   48
+#define MOTOR_DOWN 47
+// motor driver board is labeled
+// in 1, in 2, in 3, in 4
+// nc  , nc  , blue, orange
+
 #ifndef LED_BUILTIN
 #define LED_BUILTIN 2
 #endif
+
+
+// how many seconds does it take to home the linear actuator
+const int home_seconds = 38;
+
 
 const char *ssid     = "RN02verticalprofile";
 const char *password = "password1!";
@@ -102,6 +115,18 @@ void setup() {
   Serial.begin(115200);
   Serial.println();
 
+  syringeSetup(MOTOR_UP, MOTOR_DOWN);
+
+  // turn LED on
+  digitalWrite(LED_BUILTIN, HIGH);
+
+  // record when we are homing the axis
+  unsigned long start_home = micros();
+
+  // Empty the syringe at startup so position is known
+  waterOut();
+
+
   // Pre-populate sensor data array with a simulated depth/pressure profile
   for (int i = 0; i < DATA_LEN; i++) {
     // Simulate a dive-and-resurface profile: ramp down then back up
@@ -127,6 +152,19 @@ void setup() {
   Serial.println(WiFi.softAPIP());
   server.begin();
   Serial.println("Server started");
+
+  // wait until 38 seconds after homging
+  while( (micros() - start_home) < (home_seconds * 1000000) ) {
+    // do nothing
+  }
+
+  waterStop();
+
+  // turn LED off
+  digitalWrite(LED_BUILTIN, LOW);
+
+  // Zero all tracking state — syringe is now at a known empty position
+  syringeReset();
 }
 
 void loop() {
