@@ -23,6 +23,32 @@ connectors:
   ESP32:
     type: Heltec WiFi LoRa 32
     pinlabels: [GND, 3V3, USBN, USBP, P4, P33, P34, P47, P48]
+  LINEAR:
+    type: Linear Actuator
+    pinlabels: [MOTORN, MOTORP, VCC, GND, OUTPUT]
+
+
+# BK ##000000 (black)
+# WH ##ffffff (white)
+# GY ##999999 (grey)
+# PK ##ff66cc (pink)
+# RD ##ff0000 (red)
+# OG ##ff8000 (orange)
+# YE ##ffff00 (yellow)
+# OL ##708000 (olive green)
+# GN ##00ff00 (green)
+# TQ ##00ffff (turquoise)
+# LB ##a0dfff (light blue)
+# BU ##0066ff (blue)
+# VT ##8000ff (violet)
+# BN ##895956 (brown)
+# BG ##ceb673 (beige)
+# IV ##f5f0d0 (ivory)
+# SL ##708090 (slate)
+# CU ##d6775e (copper)
+# SN ##aaaaaa (tin)
+# SR ##84878c (silver)
+# GD ##ffcf80 (gold)
 
 cables:
   BRAID1:
@@ -41,6 +67,9 @@ cables:
     wirecount: 2
     colors: [BU, OG]
     type: Jumper Wire
+  LINEARCABLE:
+    wirecount: 5
+    colors: [BK, RD, WH, GN, YE]
 
 connections:
   -

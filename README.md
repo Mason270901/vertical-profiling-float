@@ -90,3 +90,9 @@ arduino-cli board listall heltec
 
 # Hall effect
 The linear actuator has hall effect feedback. This is annoying because we need to setup an ISR. During testing, I looked at the waves on the scope, and it was pretty noisy. At one point the waveform changed (it's possible I damaged the hall effect). After that however, I reduced the pullup to 47k with 100nF in parallel. With this setup I proved the esp32 could capture edges correctly.
+
+
+# WireViz
+I've drawn the write diagram using WireViz.
+
+* https://github.com/wireviz/WireViz/blob/master/docs/syntax.md
