@@ -236,6 +236,19 @@ void wifi_loop(unsigned long now) {
             digitalWrite(LED_BUILTIN, LOW);
             sendJson(wifiClient, 200, "{\"led\":\"off\"}");
 
+          // AJAX endpoint: set syringe setpoint  GET /setpoint?v=NNN
+          } else if (path.startsWith("/setpoint")) {
+            int paramIdx = path.indexOf("v=");
+            if (paramIdx >= 0) {
+              int val = path.substring(paramIdx + 2).toInt();
+              if (val < 0)   val = 0;
+              if (val > 250) val = 250;
+              syringeSetpoint(val);
+              sendJson(wifiClient, 200, "{\"setpoint\":" + String(val) + "}");
+            } else {
+              sendJson(wifiClient, 200, "{\"error\":\"missing v param\"}");
+            }
+
           // AJAX endpoint: return the 44-element data array as JSON
           } else if (path == "/data") {
             String json = "{\"data\":[";
@@ -279,17 +292,25 @@ void led_blink(unsigned long now) {
 }
 
 // ---------------------------------------------------------------------------
+// syringe
+// ---------------------------------------------------------------------------
+
+void run_syringe(unsigned long now) {
+  syringeLoop();
+}
+
+// ---------------------------------------------------------------------------
 // Runnable table + main loop
 // ---------------------------------------------------------------------------
-Runnable runnables[] = { wifi_loop, led_blink };
+Runnable runnables[] = { wifi_loop, led_blink, run_syringe };
 
 const int num_runnable = ARRAY_SIZE(runnables);
 
 // Last time each Runnable was called
-unsigned long last_run[] = {0, 0};
+unsigned long last_run[] = {0, 0, 0};
 
 // Call period in us for each Runnable (0 = every loop iteration)
-unsigned long period[] = {0, 2000000};
+unsigned long period[] = {0, 2000000, 1000};
 
 void loop() {
   const unsigned long now = micros();

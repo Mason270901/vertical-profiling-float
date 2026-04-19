@@ -78,6 +78,19 @@
     .btn-off { background: var(--red);   color: #fff; }
     .btn-fetch { background: var(--accent); color: #fff; }
 
+    /* ── Number input ──────────────────────────────────────────── */
+    input[type=number] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: .9rem;
+      padding: .45rem .8rem;
+      width: 110px;
+      outline: none;
+    }
+    input[type=number]:focus { border-color: var(--accent); }
+
     /* ── Toast ──────────────────────────────────────────────── */
     #toast {
       display: none;
@@ -150,6 +163,19 @@
   <div id="toast"></div>
 </div>
 
+<!-- CC Setpoint Card -->
+<div class="card">
+  <h2>CC Setpoint</h2>
+  <div class="led-row">
+    <label for="sp-input" style="color:var(--muted);font-size:.9rem;">Volume (cc)</label>
+    <input type="number" id="sp-input" min="0" max="300" step="1" placeholder="e.g. 50">
+    <div class="btn-group" style="margin-left:auto">
+      <button class="btn-fetch" id="btn-setpoint" onclick="setSetpoint()">Set</button>
+    </div>
+  </div>
+  <div id="sp-toast" style="display:none;font-size:.82rem;margin-top:.7rem;"></div>
+</div>
+
 <!-- Sensor Data Card -->
 <div class="card">
   <div class="data-header">
@@ -162,6 +188,37 @@
 </div>
 
 <script>
+  // ── CC Setpoint ──────────────────────────────────────────────
+  async function setSetpoint() {
+    const input = document.getElementById('sp-input');
+    const btn   = document.getElementById('btn-setpoint');
+    const toast = document.getElementById('sp-toast');
+    const val   = parseInt(input.value, 10);
+
+    if (isNaN(val) || input.value.trim() === '') {
+      toast.style.display = 'block';
+      toast.style.color   = 'var(--red)';
+      toast.textContent   = 'Enter a numeric value first.';
+      return;
+    }
+
+    btn.disabled = true;
+    toast.style.display = 'none';
+    try {
+      const res  = await fetch('/setpoint?v=' + val);
+      const json = await res.json();
+      toast.style.display = 'block';
+      toast.style.color   = 'var(--green)';
+      toast.textContent   = 'Setpoint set to ' + json.setpoint + ' cc';
+    } catch (e) {
+      toast.style.display = 'block';
+      toast.style.color   = 'var(--red)';
+      toast.textContent   = 'Request failed: ' + e.message;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
   // ── LED control ────────────────────────────────────────────
   async function setLed(state) {
     const endpoint = state === 'on' ? '/H' : '/L';
