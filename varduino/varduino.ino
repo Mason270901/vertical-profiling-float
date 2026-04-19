@@ -157,9 +157,20 @@ void setup() {
   server.begin();
   Serial.println("Server started");
 
-  // wait until 38 seconds after homging
-  while( (micros() - start_home) < (home_seconds * 1000000) ) {
-    // do nothing
+  // wait until 38 seconds after homing
+  // LED blinks faster and faster to visually track progress of the homing process
+  {
+    unsigned long total_us    = (unsigned long)home_seconds * 1000000UL;
+    unsigned long last_toggle = start_home;
+    while ((micros() - start_home) < total_us) {
+      unsigned long elapsed   = micros() - start_home;
+      unsigned long pct       = elapsed / (total_us / 100UL);  // 0 – 100
+      unsigned long period_us = 800000UL - 7200UL * pct;       // 800 ms → 80 ms
+      if (micros() - last_toggle >= period_us) {
+        digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+        last_toggle = micros();
+      }
+    }
   }
 
   waterStop();
@@ -284,7 +295,7 @@ void wifi_loop(unsigned long now) {
 // led_blink — non-blocking Runnable that toggles the LED every 2 seconds.
 // Called at the rate defined by period[]; no internal timing needed.
 // ---------------------------------------------------------------------------
-static bool ledOn = false;
+static bool ledOn = true;
 
 void led_blink(unsigned long now) {
   ledOn = !ledOn;
