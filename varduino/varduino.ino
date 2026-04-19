@@ -50,6 +50,8 @@ uint32_t sensorData[DATA_LEN];
 
 typedef void (*Runnable)(unsigned long);
 
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
+
 // Return a MIME type string based on file extension
 String mimeType(const String &path) {
   if (path.endsWith(".html") || path.endsWith(".htm")) return "text/html";
@@ -267,27 +269,34 @@ void wifi_loop(unsigned long now) {
 
 // ---------------------------------------------------------------------------
 // led_blink — non-blocking Runnable that toggles the LED every 2 seconds.
+// Called at the rate defined by period[]; no internal timing needed.
 // ---------------------------------------------------------------------------
-static unsigned long ledLastToggle = 0;
-static bool          ledOn         = false;
+static bool ledOn = false;
 
 void led_blink(unsigned long now) {
-  if (now - ledLastToggle >= 2000) {
-    ledLastToggle = now;
-    ledOn = !ledOn;
-    digitalWrite(LED_BUILTIN, ledOn ? HIGH : LOW);
-  }
+  ledOn = !ledOn;
+  digitalWrite(LED_BUILTIN, ledOn ? HIGH : LOW);
 }
 
 // ---------------------------------------------------------------------------
 // Runnable table + main loop
 // ---------------------------------------------------------------------------
 Runnable runnables[] = { wifi_loop, led_blink };
-#define RUNNABLE_COUNT (sizeof(runnables) / sizeof(runnables[0]))
+
+const int num_runnable = ARRAY_SIZE(runnables);
+
+// Last time each Runnable was called
+unsigned long last_run[] = {0, 0};
+
+// Call period in us for each Runnable (0 = every loop iteration)
+unsigned long period[] = {0, 2000000};
 
 void loop() {
-  unsigned long now = millis();
-  for (size_t i = 0; i < RUNNABLE_COUNT; i++) {
-    runnables[i](now);
+  const unsigned long now = micros();
+  for (int i = 0; i < num_runnable; i++) {
+    if (now - last_run[i] >= period[i]) {
+      runnables[i](now);
+      last_run[i] = now;
+    }
   }
 }
