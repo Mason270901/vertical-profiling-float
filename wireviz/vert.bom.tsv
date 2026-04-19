@@ -1,0 +1,14 @@
+Id	Description	Qty	Unit	Designators
+1	Cable, 5 wires	0	m	LINEARCABLE
+2	Cable, Braid Wrapped, 2 wires	0	m	BRAID1, BRAID2
+3	Cable, Jumper Wire, 2 wires	0	m	SIGNALMOTORDRIVER
+4	Cable, Jumper Wire, 3 wires	0	m	SUPPLYMOTORDRIVER
+5	Connector, Battery Holder, 2 pins	1		BATTERY
+6	Connector, DC to DC converter, 4 pins	1		DCDC
+7	Connector, Heltec WiFi LoRa 32, 9 pins	1		ESP32
+8	Connector, Linear Actuator, 5 pins	1		LINEAR
+9	Connector, Motor Driver, 11 pins	1		MOTORDRIVER
+10	Connector, Power Button, 5 pins	1		PWR
+11	Connector, Wago No 1, 2 pins	1		WAGO1
+12	Connector, Wago No 2, 2 pins	1		WAGO2
+13	Connector, Wago No 3, 3 pins	1		WAGO3
