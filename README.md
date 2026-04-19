@@ -1,5 +1,7 @@
 # vertical-profiling-float
 
+![Wiring Diagram](wireviz/vert.svg)
+
 # Operation
 
 ```bash
