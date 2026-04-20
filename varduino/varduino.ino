@@ -253,7 +253,7 @@ void wifi_loop(unsigned long now) {
             if (paramIdx >= 0) {
               int val = path.substring(paramIdx + 2).toInt();
               if (val < 0)   val = 0;
-              if (val > 250) val = 250;
+              if (val > 290) val = 290; // max is 250, but due to hysteresis this allows to hit both limit switches
               syringeSetpoint(val);
               sendJson(wifiClient, 200, "{\"setpoint\":" + String(val) + "}");
             } else {
