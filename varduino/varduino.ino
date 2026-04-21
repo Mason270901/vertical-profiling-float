@@ -15,21 +15,44 @@
     GET /data  — 44-element uint32 array → {"data":[...]}
 */
 
+// for wifi
 #include <WiFi.h>
 #include <WiFiAP.h>
 #include <LittleFS.h>
-
+// for pressure
+#include <Wire.h>
+#include "MS5837.h"
+// my lib for syringe
 #include "syringe.hpp"
 
-#define MOTOR_UP   48
-#define MOTOR_DOWN 47
+///////////////////////////////////////////////////////////////////////////////
+// Pressure Sensor
+// Red   - Vin   (5V)
+// Green - SCL   (CLOCK)
+// White - SDA   (DATA)
+// Black - GND
+#define CLOCK 33
+#define DATA  34
+
+///////////////////////////////////////////////////////////////////////////////
 // motor driver board is labeled
 // in 1, in 2, in 3, in 4
 // nc  , nc  , blue, orange
+#define MOTOR_UP   48
+#define MOTOR_DOWN 47
+
+///////////////////////////////////////////////////////////////////////////////
 
 #ifndef LED_BUILTIN
 #define LED_BUILTIN 2
 #endif
+
+// Bar30: MS5837_30BA (up to 300 m depth)
+// Bar02: MS5837_02BA (up to 10 m depth)
+// Change the model below if you have a Bar02.
+// #define SENSOR_MODEL MS5837::MS5837_30BA
+
+MS5837 sensor;
 
 
 // how many seconds does it take to home the linear actuator
@@ -114,10 +137,38 @@ void send404(WiFiClient &client) {
   client.println("404 Not Found");
 }
 
+void setupPressure() {
+  Wire.begin(DATA, CLOCK);
+  Wire.setClock(10000);
+
+  // sensor.setModel(SENSOR_MODEL);
+
+  int i = 0;
+
+  while (!sensor.init()) {
+    Serial.println("MS5837 init failed — check wiring");
+    for(int j = 0; j < 50; j++) {
+      delay(50);
+      digitalWrite(LED_BUILTIN, j%2==0);
+    }
+    digitalWrite(LED_BUILTIN, HIGH);
+  }
+
+  // Freshwater density: 997 kg/m³  Saltwater: 1029 kg/m³
+  sensor.setFluidDensity(997);
+  // sensor.setFluidDensity(1029);
+
+  Serial.println("MS5837 ready");
+}
+
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   Serial.begin(115200);
   Serial.println();
+
+  // setup the pressure sensor
+  // needs serial and the LED setup first
+  setupPressure();
 
   syringeSetup(MOTOR_UP, MOTOR_DOWN);
 
@@ -311,17 +362,34 @@ void run_syringe(unsigned long now) {
 }
 
 // ---------------------------------------------------------------------------
+// read_pressure — read MS5837 and print to Serial every 500 ms.
+// ---------------------------------------------------------------------------
+void read_pressure(unsigned long now) {
+  sensor.read();
+
+  char buf[120];
+  snprintf(buf, sizeof(buf),
+    "pressure=%.2f mbar  temp=%.2f C  depth=%.4f m  altitude=%.2f m",
+    sensor.pressure(),
+    sensor.temperature(),
+    sensor.depth(),
+    sensor.altitude());
+
+  Serial.println(buf);
+}
+
+// ---------------------------------------------------------------------------
 // Runnable table + main loop
 // ---------------------------------------------------------------------------
-Runnable runnables[] = { wifi_loop, led_blink, run_syringe };
+Runnable runnables[] = { wifi_loop, led_blink, run_syringe, read_pressure };
 
 const int num_runnable = ARRAY_SIZE(runnables);
 
 // Last time each Runnable was called
-unsigned long last_run[] = {0, 0, 0};
+unsigned long last_run[] = {0, 0, 0, 0};
 
 // Call period in us for each Runnable (0 = every loop iteration)
-unsigned long period[] = {0, 2000000, 1000};
+unsigned long period[] = {0, 2000000, 1000, 500000};
 
 void loop() {
   const unsigned long now = micros();
