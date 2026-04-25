@@ -59,7 +59,7 @@
 const int home_seconds = 38;
 
 // how much depth to add to offset (for sea level etc)
-const float depth_add = 0.2;
+const float depth_add = 0.02;
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -74,7 +74,7 @@ MS5837 sensor;
 
 
 // Runtime FSM enable flag — toggled via /enableFSM and /disableFSM endpoints
-static int          fsmEnabled         = 0;
+static int          fsmEnabled         = 1;
 
 
 const char *ssid     = "RN02verticalprofile";
@@ -425,7 +425,7 @@ void run_syringe(unsigned long now) {
 // ---------------------------------------------------------------------------
 
 enum ProfileState {
-  PROFILE_WAITING_PLACE_WATER,
+  PROFILE_WAITING_PLACE_WATER = 1,
   PROFILE_DIVING,
   PROFILE_STABALIZE,
   PROFILE_CLIMB,
@@ -463,6 +463,13 @@ static const float CLIMB_HOLD_UPPER     = 0.80f;  // upper bound for "holding at
 static const float SURFACE_THRESH       = 0.10f;  // depth at which we consider surfaced
 
 void profile_fsm_run(float depth) {
+  static unsigned long lastBlinkUs = 0;
+  unsigned long nowUs = micros();
+  if (nowUs - lastBlinkUs >= 2000000UL) {
+    blinkNum(profileState);
+    lastBlinkUs = nowUs;
+  }
+
   switch (profileState) {
 
   case PROFILE_WAITING_PLACE_WATER:
@@ -472,6 +479,7 @@ void profile_fsm_run(float depth) {
       Serial.println("FSM -> DIVING");
       profileSetpoint += descendDelta;  // e.g. 150 + 10 = 160
       profileState = PROFILE_DIVING;
+      blinkNum(profileState);
     }
     break;
 
@@ -483,6 +491,7 @@ void profile_fsm_run(float depth) {
       profileSetpoint += stabilizeEntryDelta;  // back off to slow the descent
       stabilizeCount   = 0;
       profileState     = PROFILE_STABALIZE;
+      blinkNum(profileState);
     }
     break;
 
@@ -510,6 +519,7 @@ void profile_fsm_run(float depth) {
       climbEntrySetpoint  = profileSetpoint;   // snapshot for aggressive-climb phase
       climbCount          = 0;
       profileState        = PROFILE_CLIMB;
+      blinkNum(profileState);
     }
     break;
   }
@@ -541,6 +551,7 @@ void profile_fsm_run(float depth) {
       Serial.println("FSM -> SURFACE");
       profileSetpoint -= 10;
       profileState     = PROFILE_SURFACE;
+      blinkNum(profileState);
     }
     break;
   }
@@ -554,6 +565,7 @@ void profile_fsm_run(float depth) {
     } else {
       Serial.println("FSM -> FINISHED");
       profileState = PROFILE_FINISHED;
+      blinkNum(profileState);
     }
     syringeSetpoint(profileSetpoint);
     break;
@@ -643,15 +655,18 @@ void read_pressure(unsigned long now) {
 // ---------------------------------------------------------------------------
 // Runnable table + main loop
 // ---------------------------------------------------------------------------
-Runnable runnables[] = { wifi_loop, led_blink, run_syringe, read_pressure };
+// Runnable runnables[] = { wifi_loop, led_blink, run_syringe, read_pressure };
+Runnable runnables[] = { wifi_loop, run_syringe, read_pressure };
 
 const int num_runnable = ARRAY_SIZE(runnables);
 
 // Last time each Runnable was called
-unsigned long last_run[] = {0, 0, 0, 0};
+// unsigned long last_run[] = {0, 0, 0, 0};
+unsigned long last_run[] = {0, 0, 0};
 
 // Call period in us for each Runnable (0 = every loop iteration)
-unsigned long period[] = {0, 2000000, 1000, 500000};
+// unsigned long period[] = {0, 2000000, 1000, 500000};
+unsigned long period[] = {0, 1000, 500000};
 
 void loop() {
   const unsigned long now = micros();
