@@ -47,8 +47,20 @@
 #define LED_BUILTIN 2
 #endif
 
+///////////////////////////////////////////////////////////////////////////////
+// controls and setpoints
+
 // #define USE_FAKE_PRESSURE
 // #define SKIP_INITIAL_SYRINGE_LIMITSWITCH
+// #define SKIP_PROFILE_FSM
+
+// how many seconds does it take to home the linear actuator
+const int home_seconds = 38;
+
+// how much depth to add to offset (for sea level etc)
+const float depth_add = 0.2;
+
+///////////////////////////////////////////////////////////////////////////////
 
 // Bar30: MS5837_30BA (up to 300 m depth)
 // Bar02: MS5837_02BA (up to 10 m depth)
@@ -58,8 +70,7 @@
 MS5837 sensor;
 
 
-// how many seconds does it take to home the linear actuator
-const int home_seconds = 38;
+
 
 
 const char *ssid     = "RN02verticalprofile";
@@ -371,6 +382,143 @@ void run_syringe(unsigned long now) {
 }
 
 // ---------------------------------------------------------------------------
+// Profile FSM
+// ---------------------------------------------------------------------------
+
+enum ProfileState {
+  PROFILE_WAITING_PLACE_WATER,
+  PROFILE_DIVING,
+  PROFILE_STABALIZE,
+  PROFILE_CLIMB,
+  PROFILE_SURFACE,
+  PROFILE_FINISHED
+};
+
+// controls
+static int          initialWaitPoint     = 150;
+static int          descendPoint         = 160;
+static int          stabilizePoint       = 150;
+static int          climbPoint           = 120;
+static int          agressiveClimb       = 115;
+
+static ProfileState profileState    = PROFILE_WAITING_PLACE_WATER;
+static int          profileSetpoint = 150;
+static int          stabilizeCount  = 0;
+static int          climbCount      = 0;
+
+// Consecutive in-range calls needed for a 31-second window (500 ms / call)
+static const int PROFILE_REQUIRED_COUNT = 62;
+
+// Depth thresholds (metres)
+static const float DIVE_STABALIZE_DEPTH = 2.1f;   // begin STABALIZE early to avoid overshoot
+static const float STAB_TARGET          = 2.5f;
+static const float STAB_LOWER           = 2.27f;
+static const float STAB_UPPER           = 2.83f;
+static const float CLIMB_TARGET         = 0.5f;
+static const float CLIMB_HOLD_UPPER     = 0.80f;  // upper bound for "holding at 0.5 m"
+static const float SURFACE_THRESH       = 0.10f;  // depth at which we consider surfaced
+
+void profile_fsm_run(float depth) {
+  switch (profileState) {
+
+  case PROFILE_WAITING_PLACE_WATER:
+    // Keep syringe at a neutral position while waiting to be placed in water.
+    syringeSetpoint(initialWaitPoint);
+    if (depth > 0.5f) {
+      Serial.println("FSM -> DIVING");
+      profileState = PROFILE_DIVING;
+    }
+    break;
+
+  case PROFILE_DIVING:
+    // Fill syringe to descend; transition early to avoid overshooting 2.5 m.
+    syringeSetpoint(descendPoint);
+    if (depth >= DIVE_STABALIZE_DEPTH) {
+      Serial.println("FSM -> STABALIZE");
+      profileSetpoint = stabilizePoint;
+      stabilizeCount  = 0;
+      profileState    = PROFILE_STABALIZE;
+    }
+    break;
+
+  case PROFILE_STABALIZE: {
+    bool inRange = (depth >= STAB_LOWER && depth <= STAB_UPPER);
+
+    if (!inRange) {
+      // Out of the acceptable window — reset timer and apply a stronger correction.
+      stabilizeCount = 0;
+      if (depth > STAB_UPPER) profileSetpoint -= 2;  // too deep: shed water to rise
+      else                     profileSetpoint += 2;  // too shallow: take on water to dive
+    } else {
+      stabilizeCount++;
+      // Within range but apply fine corrections to stay centred on STAB_TARGET.
+      // Hysteresis/voltage variations mean we must keep adjusting dynamically.
+      if      (depth > STAB_TARGET + 0.1f) profileSetpoint--;  // drifting deep
+      else if (depth < STAB_TARGET - 0.1f) profileSetpoint++;  // drifting shallow
+    }
+
+    syringeSetpoint(profileSetpoint);
+
+    if (stabilizeCount >= PROFILE_REQUIRED_COUNT) {
+      Serial.println("FSM -> CLIMB");
+      profileSetpoint = climbPoint;
+      climbCount      = 0;
+      profileState    = PROFILE_CLIMB;
+    }
+    break;
+  }
+
+  case PROFILE_CLIMB: {
+    // Rise toward 0.5 m; never cross above it (do not surface prematurely).
+    if (depth > CLIMB_HOLD_UPPER) {
+      // Still well below 0.5 m target, ascend aggressively.
+      profileSetpoint = agressiveClimb;
+    } else if (depth > CLIMB_TARGET) {
+      // Approaching 0.5 m — throttle ascent to avoid overshoot.
+      if (depth > CLIMB_TARGET + 0.15f) profileSetpoint--;
+      else                               profileSetpoint++;
+    } else {
+      // depth <= 0.5 m: ascending past target; add water to brake.
+      profileSetpoint += 2;
+    }
+
+    syringeSetpoint(profileSetpoint);
+
+    // Accumulate time while holding within [0.5 m, 0.8 m].
+    if (depth >= CLIMB_TARGET && depth <= CLIMB_HOLD_UPPER) {
+      climbCount++;
+    } else {
+      climbCount = 0;
+    }
+
+    if (climbCount >= PROFILE_REQUIRED_COUNT) {
+      Serial.println("FSM -> SURFACE");
+      profileSetpoint -= 10;
+      profileState     = PROFILE_SURFACE;
+    }
+    break;
+  }
+
+  case PROFILE_SURFACE:
+    // Progressively decrease setpoint (including negative values if needed)
+    // to expel water and ascend to the surface.
+    if (depth > SURFACE_THRESH) {
+      profileSetpoint -= 3;
+      if (profileSetpoint < -50) profileSetpoint = -50;
+    } else {
+      Serial.println("FSM -> FINISHED");
+      profileState = PROFILE_FINISHED;
+    }
+    syringeSetpoint(profileSetpoint);
+    break;
+
+  case PROFILE_FINISHED:
+    // Hold here and do nothing.
+    break;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // read_pressure — read MS5837 and print to Serial every 500 ms.
 // Appends to sensorData[] on every 8th call (≈ every 4 s).
 // ---------------------------------------------------------------------------
@@ -385,7 +533,7 @@ void read_pressure(unsigned long now) {
   float pressure, temperature, depth, altitude;
   pressure = sensor.pressure();
   temperature = sensor.temperature();
-  depth = sensor.depth();
+  depth = sensor.depth() + depth_add; // add in our manual offset
   altitude = sensor.altitude();
 
 
@@ -398,6 +546,10 @@ void read_pressure(unsigned long now) {
     altitude);
 
   Serial.println(buf);
+
+#ifndef SKIP_PROFILE_FSM
+  profile_fsm_run(depth);
+#endif
 
   pressureCallCount++;
   if (pressureCallCount >= 8) {
@@ -424,6 +576,10 @@ void read_pressure(unsigned long now) {
   char buf[80];
   snprintf(buf, sizeof(buf), "FAKE depth=%.2f m  pressure=%.2f", depth, pressure);
   Serial.println(buf);
+
+#ifndef SKIP_PROFILE_FSM
+  profile_fsm_run(depth);
+#endif
 
   pressureCallCount++;
   if (pressureCallCount >= 8) {
