@@ -67,7 +67,9 @@ const float depth_add = 0.2;
 // Change the model below if you have a Bar02.
 // #define SENSOR_MODEL MS5837::MS5837_30BA
 
+#ifndef USE_FAKE_PRESSURE
 MS5837 sensor;
+#endif
 
 
 
@@ -159,6 +161,7 @@ void send404(WiFiClient &client) {
   client.println("404 Not Found");
 }
 
+#ifndef USE_FAKE_PRESSURE
 void setupPressure() {
   Wire.begin(DATA, CLOCK);
   Wire.setClock(10000);
@@ -182,15 +185,18 @@ void setupPressure() {
 
   Serial.println("MS5837 ready");
 }
+#endif
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   Serial.begin(115200);
   Serial.println();
 
+#ifndef USE_FAKE_PRESSURE
   // setup the pressure sensor
   // needs serial and the LED setup first
   setupPressure();
+#endif
 
   syringeSetup(MOTOR_UP, MOTOR_DOWN);
 
