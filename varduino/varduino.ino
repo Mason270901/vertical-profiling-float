@@ -47,6 +47,9 @@
 #define LED_BUILTIN 2
 #endif
 
+// #define USE_FAKE_PRESSURE
+// #define SKIP_INITIAL_SYRINGE_LIMITSWITCH
+
 // Bar30: MS5837_30BA (up to 300 m depth)
 // Bar02: MS5837_02BA (up to 10 m depth)
 // Change the model below if you have a Bar02.
@@ -186,8 +189,10 @@ void setup() {
   // record when we are homing the axis
   unsigned long start_home = micros();
 
+#ifndef SKIP_INITIAL_SYRINGE_LIMITSWITCH
   // Empty the syringe at startup so position is known
   waterOut();
+#endif
 
 
   if (!LittleFS.begin()) {
@@ -206,6 +211,7 @@ void setup() {
   server.begin();
   Serial.println("Server started");
 
+#ifndef SKIP_INITIAL_SYRINGE_LIMITSWITCH
   // wait until 38 seconds after homing
   // LED blinks faster and faster to visually track progress of the homing process
   {
@@ -223,6 +229,7 @@ void setup() {
   }
 
   waterStop();
+#endif
 
   // turn LED off
   digitalWrite(LED_BUILTIN, LOW);
@@ -369,6 +376,8 @@ void run_syringe(unsigned long now) {
 // ---------------------------------------------------------------------------
 static int pressureCallCount = 0;
 
+#ifndef USE_FAKE_PRESSURE
+
 void read_pressure(unsigned long now) {
   sensor.read();
 
@@ -396,6 +405,38 @@ void read_pressure(unsigned long now) {
     log_data(depth, pressure);
   }
 }
+
+#else
+// THIS is the fake version
+// Ramps depth 0.1 m/call up to 2.5 m (call 24, 0-indexed), holds through call 264.
+// Pressure is set equal to depth.
+static int fakePressureCallNum = 0;
+
+void read_pressure(unsigned long now) {
+  float depth;
+  if (fakePressureCallNum < 25) {
+    depth = (fakePressureCallNum + 1) * 0.1f;  // call 0 → 0.1 m … call 24 → 2.5 m
+  } else {
+    depth = 2.5f;                               // hold at 2.5 m
+  }
+  float pressure = depth;
+
+  char buf[80];
+  snprintf(buf, sizeof(buf), "FAKE depth=%.2f m  pressure=%.2f", depth, pressure);
+  Serial.println(buf);
+
+  pressureCallCount++;
+  if (pressureCallCount >= 8) {
+    pressureCallCount = 0;
+    log_data(depth, pressure);
+  }
+
+  fakePressureCallNum++;
+}
+
+#endif
+
+
 
 // ---------------------------------------------------------------------------
 // Runnable table + main loop
