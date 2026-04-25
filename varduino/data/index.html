@@ -176,6 +176,20 @@
   <div id="sp-toast" style="display:none;font-size:.82rem;margin-top:.7rem;"></div>
 </div>
 
+<!-- Profile FSM Card -->
+<div class="card">
+  <h2>Profile FSM</h2>
+  <div class="led-row">
+    <div class="led-indicator off" id="fsm-dot"></div>
+    <span class="led-label" id="fsm-label">Disabled</span>
+    <div class="btn-group">
+      <button class="btn-on"  id="btn-fsm-enable"  onclick="setFSM('enable')">Enable</button>
+      <button class="btn-off" id="btn-fsm-disable" onclick="setFSM('disable')">Disable</button>
+    </div>
+  </div>
+  <div id="fsm-toast" style="display:none;font-size:.82rem;margin-top:.7rem;"></div>
+</div>
+
 <!-- Sensor Data Card -->
 <div class="card">
   <div class="data-header">
@@ -217,6 +231,37 @@
     } finally {
       btn.disabled = false;
     }
+  }
+
+  // ── Profile FSM control ─────────────────────────────────────
+  async function setFSM(action) {
+    const endpoint = action === 'enable' ? '/enableFSM' : '/disableFSM';
+    const btnEnable  = document.getElementById('btn-fsm-enable');
+    const btnDisable = document.getElementById('btn-fsm-disable');
+    btnEnable.disabled = btnDisable.disabled = true;
+    const toast = document.getElementById('fsm-toast');
+    toast.style.display = 'none';
+    try {
+      const res  = await fetch(endpoint);
+      const json = await res.json();
+      applyFSMState(json.fsm);
+      toast.style.display = 'block';
+      toast.style.color   = 'var(--green)';
+      toast.textContent   = 'FSM is now ' + json.fsm;
+    } catch (e) {
+      toast.style.display = 'block';
+      toast.style.color   = 'var(--red)';
+      toast.textContent   = 'Request failed: ' + e.message;
+    } finally {
+      btnEnable.disabled = btnDisable.disabled = false;
+    }
+  }
+
+  function applyFSMState(state) {
+    const dot   = document.getElementById('fsm-dot');
+    const label = document.getElementById('fsm-label');
+    dot.className = 'led-indicator ' + (state === 'enabled' ? 'on' : 'off');
+    label.textContent = state.charAt(0).toUpperCase() + state.slice(1);
   }
 
   // ── LED control ────────────────────────────────────────────

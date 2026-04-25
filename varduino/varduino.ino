@@ -73,7 +73,8 @@ MS5837 sensor;
 #endif
 
 
-
+// Runtime FSM enable flag — toggled via /enableFSM and /disableFSM endpoints
+static int          fsmEnabled         = 0;
 
 
 const char *ssid     = "RN02verticalprofile";
@@ -327,6 +328,16 @@ void wifi_loop(unsigned long now) {
             digitalWrite(LED_BUILTIN, LOW);
             sendJson(wifiClient, 200, "{\"led\":\"off\"}");
 
+          // AJAX endpoint: enable profile FSM
+          } else if (path == "/enableFSM") {
+            fsmEnabled = 1;
+            sendJson(wifiClient, 200, "{\"fsm\":\"enabled\"}");
+
+          // AJAX endpoint: disable profile FSM
+          } else if (path == "/disableFSM") {
+            fsmEnabled = 0;
+            sendJson(wifiClient, 200, "{\"fsm\":\"disabled\"}");
+
           // AJAX endpoint: set syringe setpoint  GET /setpoint?v=NNN
           } else if (path.startsWith("/setpoint")) {
             int paramIdx = path.indexOf("v=");
@@ -412,14 +423,16 @@ enum ProfileState {
 // controls
 // initialWaitPoint is the only absolute value; all others are deltas of
 // the previous profileSetpoint so that hysteresis is carried forward.
-static int          initialWaitPoint       = 150;   // absolute starting setpoint
-static int          descendDelta           = +10;   // added to profileSetpoint on DIVING entry
-static int          stabilizeEntryDelta    = -10;   // added to profileSetpoint on STABALIZE entry
+static int          initialWaitPoint       = 110;   // absolute starting setpoint
+static int          descendDelta           = +20;   // added to profileSetpoint on DIVING entry
+static int          stabilizeEntryDelta    = -20;   // added to profileSetpoint on STABALIZE entry
 static int          climbDelta             = -30;   // added to profileSetpoint on CLIMB entry
 static int          aggressiveClimbDelta   = -5;    // offset from climbEntrySetpoint in deep CLIMB phase
 
+
+
 static ProfileState profileState       = PROFILE_WAITING_PLACE_WATER;
-static int          profileSetpoint    = 150;   // tracks current setpoint; starts == initialWaitPoint
+static int          profileSetpoint    = initialWaitPoint;  // tracks current setpoint; starts == initialWaitPoint
 static int          climbEntrySetpoint = 0;     // snapshot of profileSetpoint when CLIMB is entered
 static int          stabilizeCount     = 0;
 static int          climbCount         = 0;
@@ -567,9 +580,9 @@ void read_pressure(unsigned long now) {
 
   Serial.println(buf);
 
-#ifndef SKIP_PROFILE_FSM
-  profile_fsm_run(depth);
-#endif
+  if (fsmEnabled) {
+    profile_fsm_run(depth);
+  }
 
   pressureCallCount++;
   if (pressureCallCount >= 8) {
@@ -597,9 +610,9 @@ void read_pressure(unsigned long now) {
   snprintf(buf, sizeof(buf), "FAKE depth=%.2f m  pressure=%.2f", depth, pressure);
   Serial.println(buf);
 
-#ifndef SKIP_PROFILE_FSM
-  profile_fsm_run(depth);
-#endif
+  if (fsmEnabled) {
+    profile_fsm_run(depth);
+  }
 
   pressureCallCount++;
   if (pressureCallCount >= 8) {
