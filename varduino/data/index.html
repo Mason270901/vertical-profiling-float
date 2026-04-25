@@ -284,11 +284,12 @@
   function renderData(arr) {
     if (!arr || !arr.length) return;
 
-    const meta = document.getElementById('data-meta');
-    const min  = Math.min(...arr);
-    const max  = Math.max(...arr);
-    const avg  = (arr.reduce((a,b)=>a+b,0) / arr.length).toFixed(1);
-    meta.textContent = arr.length + ' samples \u2014 min ' + min + '  max ' + max + '  avg ' + avg;
+    const meta   = document.getElementById('data-meta');
+    const depths = arr.map(d => d[0]);
+    const min    = Math.min(...depths);
+    const max    = Math.max(...depths);
+    const avg    = (depths.reduce((a,b)=>a+b,0) / depths.length).toFixed(2);
+    meta.textContent = arr.length + ' samples \u2014 min ' + min.toFixed(2) + ' m  max ' + max.toFixed(2) + ' m  avg ' + avg + ' m';
 
     // D3 line chart
     const container = document.getElementById('chart');
@@ -318,7 +319,7 @@
       .attr('transform', `translate(${margin.left},${margin.top})`);
 
     const xScale = d3.scaleLinear()
-      .domain([0, arr.length - 1])
+      .domain([0, (arr.length - 1) * 4])
       .range([0, w]);
 
     const yScale = d3.scaleLinear()
@@ -346,13 +347,13 @@
       .selectAll('line').style('stroke', '#2e3250').style('stroke-dasharray', '3,3');
     svg.select('.grid .domain').remove();
 
-    // X axis — tick every 8 samples
+    // X axis — tick every 32 seconds (8 samples × 4 s)
     svg.append('g')
       .attr('transform', `translate(0,${h})`)
       .call(
         d3.axisBottom(xScale)
-          .tickValues(d3.range(0, arr.length, 8))
-          .tickFormat(d => '#' + String(d).padStart(2,'0'))
+          .tickValues(d3.range(0, arr.length * 4, 32))
+          .tickFormat(d => '+' + d + 's')
       );
 
     // Y axis
@@ -365,45 +366,26 @@
       .attr('x', -h / 2).attr('y', -46)
       .attr('text-anchor', 'middle')
       .style('fill', '#64748b').style('font-size', '10px')
-      .text('Value');
-
-    // Reference band: 10,000 – 20,000
-    const bandY1 = yScale(16000);
-    const bandY2 = yScale(13000);
-    if (bandY2 > bandY1) {
-      svg.append('rect')
-        .attr('x', 0).attr('width', w)
-        .attr('y', bandY1)
-        .attr('height', bandY2 - bandY1)
-        .attr('fill', 'rgba(52,211,153,0.07)')
-        .attr('stroke', 'rgba(52,211,153,0.30)')
-        .attr('stroke-width', 1)
-        .attr('stroke-dasharray', '4,3');
-      svg.append('text')
-        .attr('x', w - 4).attr('y', bandY1 + 11)
-        .attr('text-anchor', 'end')
-        .style('fill', '#34d399').style('font-size', '9px')
-        .text('13k – 16k region');
-    }
+      .text('Depth (m)');
 
     // Area
     const areaGen = d3.area()
-      .x((_, i) => xScale(i))
+      .x((_, i) => xScale(i * 4))
       .y0(h)
       .y1(d => yScale(d));
 
     svg.append('path')
-      .datum(arr)
+      .datum(depths)
       .attr('class', 'area-path')
       .attr('d', areaGen);
 
     // Line
     const lineGen = d3.line()
-      .x((_, i) => xScale(i))
+      .x((_, i) => xScale(i * 4))
       .y(d => yScale(d));
 
     svg.append('path')
-      .datum(arr)
+      .datum(depths)
       .attr('class', 'line-path')
       .style('stroke', 'url(#lineGradient)')
       .attr('d', lineGen);
@@ -415,19 +397,38 @@
       .data(arr)
       .join('circle')
         .attr('class', 'dot hidden')
-        .attr('cx', (_, i) => xScale(i))
-        .attr('cy', d => yScale(d))
+        .attr('cx', (_, i) => xScale(i * 4))
+        .attr('cy', d => yScale(d[0]))
         .attr('r', 3)
         .on('mousemove', function(event, d) {
           const i = arr.indexOf(d);
+          const t = i * 4;
           tip.style('opacity', 1)
-             .html('<strong>#' + String(i).padStart(2,'0') + '</strong> &nbsp;' + d.toLocaleString())
+             .html('<strong>+' + t + 's</strong> &nbsp;' + d[0].toFixed(2) + ' m')
              .style('left',  (event.clientX + 14) + 'px')
              .style('top',   (event.clientY - 28) + 'px');
         })
         .on('mouseleave', () => tip.style('opacity', 0));
+
+    // Populate entry log
+    const logList = document.getElementById('log-list');
+    logList.innerHTML = '';
+    arr.forEach((d, i) => {
+      const t     = i * 4;
+      const kpa   = (d[1] / 10).toFixed(1);
+      const depth = d[0].toFixed(2);
+      const li    = document.createElement('li');
+      li.textContent = 'RN02  +' + t + ' seconds  ' + kpa + ' kpa  ' + depth + ' meters';
+      logList.appendChild(li);
+    });
   }
 </script>
+
+<!-- Entry Log Card -->
+<div class="card">
+  <h2>Entry Log</h2>
+  <ul id="log-list" style="list-style:none;font-size:.82rem;font-family:monospace;color:var(--muted);line-height:1.8;"></ul>
+</div>
 
 <div id="d3-tooltip"></div>
 </body>
