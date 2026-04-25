@@ -61,6 +61,11 @@ const int home_seconds = 38;
 // how much depth to add to offset (for sea level etc)
 const float depth_add = 0.02;
 
+// readings beyond this magnitude (metres) are treated as sensor errors
+// they are not logged, and the FSM is not fed this value
+// the FSM is fed the last value over and over that is below this threshold
+const float max_valid_depth = 100.0f;
+
 ///////////////////////////////////////////////////////////////////////////////
 
 // Bar30: MS5837_30BA (up to 300 m depth)
@@ -90,6 +95,7 @@ float    sensorData[DATA_MAX][2];  // [][0]=depth  [][1]=pressure
 int      sensorDataLen = 0;
 
 void log_data(const float depth, const float pressure) {
+  if (fabsf(depth) > max_valid_depth) return;  // discard implausible depth readings
   if (sensorDataLen < DATA_MAX) {
       sensorData[sensorDataLen][0] = depth;
       sensorData[sensorDataLen][1] = pressure;
@@ -436,8 +442,8 @@ enum ProfileState {
 // controls
 // initialWaitPoint is the only absolute value; all others are deltas of
 // the previous profileSetpoint so that hysteresis is carried forward.
-static int          initialWaitPoint       = 110;   // absolute starting setpoint
-static int          descendDelta           = +20;   // added to profileSetpoint on DIVING entry
+static int          initialWaitPoint       = 0;   // absolute starting setpoint
+static int          descendDelta           = +150;   // added to profileSetpoint on DIVING entry
 static int          stabilizeEntryDelta    = -20;   // added to profileSetpoint on STABALIZE entry
 static int          climbDelta             = -30;   // added to profileSetpoint on CLIMB entry
 static int          aggressiveClimbDelta   = -5;    // offset from climbEntrySetpoint in deep CLIMB phase
@@ -605,8 +611,13 @@ void read_pressure(unsigned long now) {
 
   Serial.println(buf);
 
+  static float lastValidDepth = 0.0f;
+  if (fabsf(depth) <= max_valid_depth) {
+    lastValidDepth = depth;
+  }
+
   if (fsmEnabled) {
-    profile_fsm_run(depth);
+    profile_fsm_run(lastValidDepth);
   }
 
   pressureCallCount++;
