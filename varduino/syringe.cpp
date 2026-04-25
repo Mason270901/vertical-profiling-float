@@ -126,6 +126,16 @@ void syringeStatus() {
   Serial.println(buf);
 }
 
+// Fills buf with a JSON object: {"cc":N,"setpoint":N,"motor":"..."}
+void syringeStatusStr(char *buf, int len) {
+  int cc = syringeCC();
+  const char *motor;
+  if      (motor_state ==  1) motor = "running-in";
+  else if (motor_state == -1) motor = "running-out";
+  else                        motor = "stopped";
+  snprintf(buf, len, "{\"cc\":%d,\"setpoint\":%d,\"motor\":\"%s\"}", cc, setpoint_cc, motor);
+}
+
 // Call repeatedly from loop(). Drives motor toward setpoint_cc.
 void syringeLoop() {
   int current = syringeCC();

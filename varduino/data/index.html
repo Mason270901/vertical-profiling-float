@@ -190,6 +190,20 @@
   <div id="fsm-toast" style="display:none;font-size:.82rem;margin-top:.7rem;"></div>
 </div>
 
+<!-- Status Card -->
+<div class="card">
+  <h2>System Status</h2>
+  <div id="status-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem .8rem;font-size:.88rem;">
+    <span style="color:var(--muted)">Depth</span>    <span id="st-depth">—</span>
+    <span style="color:var(--muted)">Profile</span>  <span id="st-profile">—</span>
+    <span style="color:var(--muted)">FSM</span>      <span id="st-fsm">—</span>
+    <span style="color:var(--muted)">Syringe CC</span>  <span id="st-cc">—</span>
+    <span style="color:var(--muted)">Setpoint</span> <span id="st-sp">—</span>
+    <span style="color:var(--muted)">Motor</span>    <span id="st-motor">—</span>
+  </div>
+  <div id="status-err" style="display:none;font-size:.8rem;margin-top:.5rem;color:var(--red)"></div>
+</div>
+
 <!-- Sensor Data Card -->
 <div class="card">
   <div class="data-header">
@@ -305,6 +319,50 @@
     dots.forEach(d => d.classList.toggle('hidden', !show));
   }
 
+  // ── Status poll ────────────────────────────────────────────
+  const PROFILE_COLORS = {
+    WAITING:   'var(--muted)',
+    DIVING:    'var(--accent)',
+    STABILIZE: 'var(--yellow)',
+    CLIMB:     '#a78bfa',
+    SURFACE:   'var(--green)',
+    FINISHED:  'var(--green)',
+  };
+
+  async function fetchStatus() {
+    try {
+      const res  = await fetch('/status');
+      const json = await res.json();
+      const s = json.syringe;
+
+      document.getElementById('st-depth').textContent = json.depth.toFixed(2) + ' m';
+
+      const profileEl = document.getElementById('st-profile');
+      profileEl.textContent = json.profile;
+      profileEl.style.color = PROFILE_COLORS[json.profile] || 'var(--text)';
+
+      const fsmEl = document.getElementById('st-fsm');
+      fsmEl.textContent = json.fsm;
+      fsmEl.style.color = json.fsm === 'enabled' ? 'var(--green)' : 'var(--red)';
+
+      document.getElementById('st-cc').textContent    = s.cc    + ' cc';
+      document.getElementById('st-sp').textContent    = s.setpoint + ' cc';
+      const motorEl = document.getElementById('st-motor');
+      motorEl.textContent = s.motor;
+      motorEl.style.color = s.motor === 'stopped' ? 'var(--muted)'
+                           : s.motor === 'running-in' ? 'var(--accent)' : 'var(--red)';
+
+      document.getElementById('status-err').style.display = 'none';
+    } catch (e) {
+      const err = document.getElementById('status-err');
+      err.style.display = 'block';
+      err.textContent = 'Status error: ' + e.message;
+    }
+  }
+
+  fetchStatus();
+  setInterval(fetchStatus, 2000);
+
   // ── Data fetch ─────────────────────────────────────────────
   async function fetchData() {
     const btn = document.getElementById('btn-fetch');
@@ -403,7 +461,7 @@
 
     // Y axis
     svg.append('g')
-      .call(d3.axisLeft(yScale).ticks(5).tickFormat(d3.format(',d')));
+      .call(d3.axisLeft(yScale).ticks(5).tickFormat(d3.format('.1f')));
 
     // Y axis label
     svg.append('text')

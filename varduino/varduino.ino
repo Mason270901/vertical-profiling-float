@@ -80,6 +80,7 @@ MS5837 sensor;
 
 // Runtime FSM enable flag — toggled via /enableFSM and /disableFSM endpoints
 static int          fsmEnabled         = 1;
+static float        lastValidDepth     = 0.0f;
 
 
 const char *ssid     = "RN02verticalprofile";
@@ -277,7 +278,33 @@ void setup() {
 }
 
 // ---------------------------------------------------------------------------
-// wifi_loop — non-blocking Runnable that handles one HTTP request at a time.
+// Profile state — declared here so wifi_loop can reference it
+// ---------------------------------------------------------------------------
+enum ProfileState {
+  PROFILE_WAITING_PLACE_WATER = 1,
+  PROFILE_DIVING,
+  PROFILE_STABALIZE,
+  PROFILE_CLIMB,
+  PROFILE_SURFACE,
+  PROFILE_FINISHED
+};
+
+static ProfileState profileState = PROFILE_WAITING_PLACE_WATER;
+
+static const char* profileStateStr(int s) {
+  switch (s) {
+    case PROFILE_WAITING_PLACE_WATER: return "WAITING";
+    case PROFILE_DIVING:              return "DIVING";
+    case PROFILE_STABALIZE:           return "STABILIZE";
+    case PROFILE_CLIMB:               return "CLIMB";
+    case PROFILE_SURFACE:             return "SURFACE";
+    case PROFILE_FINISHED:            return "FINISHED";
+    default:                          return "UNKNOWN";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// wifi_loop — non-blocking Runnable
 // ---------------------------------------------------------------------------
 #define WIFI_STATE_IDLE    0
 #define WIFI_STATE_READING 1
@@ -370,6 +397,21 @@ void wifi_loop(unsigned long now) {
               sendJson(wifiClient, 200, "{\"error\":\"missing v param\"}");
             }
 
+          // AJAX endpoint: system status summary
+          } else if (path == "/status") {
+            char syrJson[72];
+            syringeStatusStr(syrJson, sizeof(syrJson));
+            String json = "{\"syringe\":";
+            json += syrJson;
+            json += ",\"fsm\":\"";
+            json += fsmEnabled ? "enabled" : "disabled";
+            json += "\",\"profile\":\"";
+            json += profileStateStr(profileState);
+            json += "\",\"depth\":";
+            json += String(lastValidDepth, 4);
+            json += "}"; 
+            sendJson(wifiClient, 200, json);
+
           // AJAX endpoint: return logged depth/pressure pairs as JSON
           } else if (path == "/data") {
             String json = "{\"data\":[";
@@ -430,14 +472,7 @@ void run_syringe(unsigned long now) {
 // Profile FSM
 // ---------------------------------------------------------------------------
 
-enum ProfileState {
-  PROFILE_WAITING_PLACE_WATER = 1,
-  PROFILE_DIVING,
-  PROFILE_STABALIZE,
-  PROFILE_CLIMB,
-  PROFILE_SURFACE,
-  PROFILE_FINISHED
-};
+// (enum ProfileState and profileState global are declared above wifi_loop)
 
 // controls
 // initialWaitPoint is the only absolute value; all others are deltas of
@@ -450,7 +485,6 @@ static int          aggressiveClimbDelta   = -5;    // offset from climbEntrySet
 
 
 
-static ProfileState profileState       = PROFILE_WAITING_PLACE_WATER;
 static int          profileSetpoint    = initialWaitPoint;  // tracks current setpoint; starts == initialWaitPoint
 static int          climbEntrySetpoint = 0;     // snapshot of profileSetpoint when CLIMB is entered
 static int          stabilizeCount     = 0;
@@ -611,7 +645,6 @@ void read_pressure(unsigned long now) {
 
   Serial.println(buf);
 
-  static float lastValidDepth = 0.0f;
   if (fabsf(depth) <= max_valid_depth) {
     lastValidDepth = depth;
   }

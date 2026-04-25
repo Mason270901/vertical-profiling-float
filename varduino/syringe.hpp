@@ -1,5 +1,6 @@
 #pragma once
 
+
 // Call once from setup(). Stores pin numbers and calls pinMode.
 void syringeSetup(int pinUp, int pinDown);
 
@@ -24,6 +25,9 @@ int  syringeState();
 
 // Prints current status to Serial: cc, setpoint, and motor direction.
 void syringeStatus();
+
+// Fills buf with a JSON object: {"cc":N,"setpoint":N,"motor":"..."}
+void syringeStatusStr(char *buf, int len);
 
 // Call repeatedly from loop(). Drives motor toward setpoint_cc.
 void syringeLoop();
