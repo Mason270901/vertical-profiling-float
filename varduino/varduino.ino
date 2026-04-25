@@ -189,6 +189,19 @@ void setupPressure() {
 }
 #endif
 
+
+
+void blinkNum(int n) {
+  for (int i = 0; i < n; i++) {
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(200);
+    digitalWrite(LED_BUILTIN, LOW);
+    if (i < n - 1) {
+      delay(150); // don't delay on final blink
+    }
+  }
+}
+
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
   Serial.begin(115200);
