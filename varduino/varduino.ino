@@ -12,7 +12,7 @@
   AJAX endpoints (return JSON, no redirect):
     GET /H     — turn LED on  → {"led":"on"}
     GET /L     — turn LED off → {"led":"off"}
-    GET /data  — 44-element uint32 array → {"data":[...]}
+    GET /data  — [[depth,pressure],...] array → {"data":[[...],...]}
 */
 
 // for wifi
@@ -65,11 +65,19 @@ const char *password = "password1!";
 WiFiServer server(80);
 
 // ---------------------------------------------------------------------------
-// Pre-populated 44-element array of 32-bit sensor readings
-// Simulated depth/pressure profile (values in millibars × 10)
+// Sensor log: [depth (m), pressure (mbar)] per entry, appended every 4 s
 // ---------------------------------------------------------------------------
-#define DATA_LEN 44
-uint32_t sensorData[DATA_LEN];
+#define DATA_MAX 256
+float    sensorData[DATA_MAX][2];  // [][0]=depth  [][1]=pressure
+int      sensorDataLen = 0;
+
+void log_data(const float depth, const float pressure) {
+  if (sensorDataLen < DATA_MAX) {
+      sensorData[sensorDataLen][0] = depth;
+      sensorData[sensorDataLen][1] = pressure;
+      sensorDataLen++;
+    }
+}
 
 typedef void (*Runnable)(unsigned long);
 
@@ -181,16 +189,6 @@ void setup() {
   // Empty the syringe at startup so position is known
   waterOut();
 
-
-  // Pre-populate sensor data array with a simulated depth/pressure profile
-  for (int i = 0; i < DATA_LEN; i++) {
-    // Simulate a dive-and-resurface profile: ramp down then back up
-    // Values represent pressure in millibars × 10 (i.e. 10130 = 1013.0 mbar)
-    uint32_t depth = (i < DATA_LEN / 2)
-      ? (10130 + (uint32_t)i * 480)          // descending
-      : (10130 + (uint32_t)(DATA_LEN - 1 - i) * 480); // ascending
-    sensorData[i] = depth;
-  }
 
   if (!LittleFS.begin()) {
     Serial.println("LittleFS mount failed — did you run `make program-data` ?");
@@ -311,12 +309,16 @@ void wifi_loop(unsigned long now) {
               sendJson(wifiClient, 200, "{\"error\":\"missing v param\"}");
             }
 
-          // AJAX endpoint: return the 44-element data array as JSON
+          // AJAX endpoint: return logged depth/pressure pairs as JSON
           } else if (path == "/data") {
             String json = "{\"data\":[";
-            for (int i = 0; i < DATA_LEN; i++) {
-              json += String(sensorData[i]);
-              if (i < DATA_LEN - 1) json += ",";
+            for (int i = 0; i < sensorDataLen; i++) {
+              json += "[";
+              json += String(sensorData[i][0], 4);
+              json += ",";
+              json += String(sensorData[i][1], 2);
+              json += "]";
+              if (i < sensorDataLen - 1) json += ",";
             }
             json += "]}";
             sendJson(wifiClient, 200, json);
@@ -363,19 +365,36 @@ void run_syringe(unsigned long now) {
 
 // ---------------------------------------------------------------------------
 // read_pressure — read MS5837 and print to Serial every 500 ms.
+// Appends to sensorData[] on every 8th call (≈ every 4 s).
 // ---------------------------------------------------------------------------
+static int pressureCallCount = 0;
+
 void read_pressure(unsigned long now) {
   sensor.read();
+
+  // avoid calling these functions more than once
+  float pressure, temperature, depth, altitude;
+  pressure = sensor.pressure();
+  temperature = sensor.temperature();
+  depth = sensor.depth();
+  altitude = sensor.altitude();
+
 
   char buf[120];
   snprintf(buf, sizeof(buf),
     "pressure=%.2f mbar  temp=%.2f C  depth=%.4f m  altitude=%.2f m",
-    sensor.pressure(),
-    sensor.temperature(),
-    sensor.depth(),
-    sensor.altitude());
+    pressure,
+    temperature,
+    depth,
+    altitude);
 
   Serial.println(buf);
+
+  pressureCallCount++;
+  if (pressureCallCount >= 8) {
+    pressureCallCount = 0;
+    log_data(depth, pressure);
+  }
 }
 
 // ---------------------------------------------------------------------------
