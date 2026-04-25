@@ -53,6 +53,7 @@
 // #define USE_FAKE_PRESSURE
 // #define SKIP_INITIAL_SYRINGE_LIMITSWITCH
 // #define SKIP_PROFILE_FSM
+// #define WIFI_LOG_VERBOSE
 
 // how many seconds does it take to home the linear actuator
 const int home_seconds = 38;
@@ -277,7 +278,9 @@ void wifi_loop(unsigned long now) {
     wifiRequestLine = "";
     wifiCurrentLine = "";
     wifiFirstLine   = true;
+    #ifdef WIFI_LOG_VERBOSE
     Serial.println("New Client.");
+    #endif
     wifiState = WIFI_STATE_READING;
     break;
   }
@@ -285,7 +288,9 @@ void wifi_loop(unsigned long now) {
   case WIFI_STATE_READING: {
     if (!wifiClient.connected()) {
       wifiClient.stop();
+      #ifdef WIFI_LOG_VERBOSE
       Serial.println("Client Disconnected.");
+      #endif
       wifiState = WIFI_STATE_IDLE;
       return;
     }
@@ -307,8 +312,10 @@ void wifi_loop(unsigned long now) {
           if (pathStart >= 0 && pathEnd > pathStart) {
             path = wifiRequestLine.substring(pathStart + 1, pathEnd);
           }
+          #ifdef WIFI_LOG_VERBOSE
           Serial.print("Request: ");
           Serial.println(path);
+          #endif
 
           // AJAX endpoint: LED on
           if (path == "/H") {
@@ -353,7 +360,9 @@ void wifi_loop(unsigned long now) {
           }
 
           wifiClient.stop();
+          #ifdef WIFI_LOG_VERBOSE
           Serial.println("Client Disconnected.");
+          #endif
           wifiState = WIFI_STATE_IDLE;
           return;
         }
