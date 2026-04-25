@@ -395,16 +395,19 @@ enum ProfileState {
 };
 
 // controls
-static int          initialWaitPoint     = 150;
-static int          descendPoint         = 160;
-static int          stabilizePoint       = 150;
-static int          climbPoint           = 120;
-static int          agressiveClimb       = 115;
+// initialWaitPoint is the only absolute value; all others are deltas of
+// the previous profileSetpoint so that hysteresis is carried forward.
+static int          initialWaitPoint       = 150;   // absolute starting setpoint
+static int          descendDelta           = +10;   // added to profileSetpoint on DIVING entry
+static int          stabilizeEntryDelta    = -10;   // added to profileSetpoint on STABALIZE entry
+static int          climbDelta             = -30;   // added to profileSetpoint on CLIMB entry
+static int          aggressiveClimbDelta   = -5;    // offset from climbEntrySetpoint in deep CLIMB phase
 
-static ProfileState profileState    = PROFILE_WAITING_PLACE_WATER;
-static int          profileSetpoint = 150;
-static int          stabilizeCount  = 0;
-static int          climbCount      = 0;
+static ProfileState profileState       = PROFILE_WAITING_PLACE_WATER;
+static int          profileSetpoint    = 150;   // tracks current setpoint; starts == initialWaitPoint
+static int          climbEntrySetpoint = 0;     // snapshot of profileSetpoint when CLIMB is entered
+static int          stabilizeCount     = 0;
+static int          climbCount         = 0;
 
 // Consecutive in-range calls needed for a 31-second window (500 ms / call)
 static const int PROFILE_REQUIRED_COUNT = 62;
@@ -423,21 +426,22 @@ void profile_fsm_run(float depth) {
 
   case PROFILE_WAITING_PLACE_WATER:
     // Keep syringe at a neutral position while waiting to be placed in water.
-    syringeSetpoint(initialWaitPoint);
+    syringeSetpoint(profileSetpoint);   // profileSetpoint == initialWaitPoint at start
     if (depth > 0.5f) {
       Serial.println("FSM -> DIVING");
+      profileSetpoint += descendDelta;  // e.g. 150 + 10 = 160
       profileState = PROFILE_DIVING;
     }
     break;
 
   case PROFILE_DIVING:
     // Fill syringe to descend; transition early to avoid overshooting 2.5 m.
-    syringeSetpoint(descendPoint);
+    syringeSetpoint(profileSetpoint);
     if (depth >= DIVE_STABALIZE_DEPTH) {
       Serial.println("FSM -> STABALIZE");
-      profileSetpoint = stabilizePoint;
-      stabilizeCount  = 0;
-      profileState    = PROFILE_STABALIZE;
+      profileSetpoint += stabilizeEntryDelta;  // back off to slow the descent
+      stabilizeCount   = 0;
+      profileState     = PROFILE_STABALIZE;
     }
     break;
 
@@ -461,9 +465,10 @@ void profile_fsm_run(float depth) {
 
     if (stabilizeCount >= PROFILE_REQUIRED_COUNT) {
       Serial.println("FSM -> CLIMB");
-      profileSetpoint = climbPoint;
-      climbCount      = 0;
-      profileState    = PROFILE_CLIMB;
+      profileSetpoint    += climbDelta;         // delta from whatever actually stabilized
+      climbEntrySetpoint  = profileSetpoint;   // snapshot for aggressive-climb phase
+      climbCount          = 0;
+      profileState        = PROFILE_CLIMB;
     }
     break;
   }
@@ -472,7 +477,7 @@ void profile_fsm_run(float depth) {
     // Rise toward 0.5 m; never cross above it (do not surface prematurely).
     if (depth > CLIMB_HOLD_UPPER) {
       // Still well below 0.5 m target, ascend aggressively.
-      profileSetpoint = agressiveClimb;
+      profileSetpoint = climbEntrySetpoint + aggressiveClimbDelta;
     } else if (depth > CLIMB_TARGET) {
       // Approaching 0.5 m — throttle ascent to avoid overshoot.
       if (depth > CLIMB_TARGET + 0.15f) profileSetpoint--;
