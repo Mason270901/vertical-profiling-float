@@ -70,7 +70,7 @@ WiFiServer server(80);
 // ---------------------------------------------------------------------------
 // Sensor log: [depth (m), pressure (mbar)] per entry, appended every 4 s
 // ---------------------------------------------------------------------------
-#define DATA_MAX 256
+#define DATA_MAX 300
 float    sensorData[DATA_MAX][2];  // [][0]=depth  [][1]=pressure
 int      sensorDataLen = 0;
 
